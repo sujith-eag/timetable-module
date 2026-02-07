@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Any
 
-from data_loader import Stage1DataLoader
-from calculate_workload import WorkloadCalculator
+from timetable.scripts.stage2.data_loader import Stage1DataLoader
+from timetable.scripts.stage2.calculate_workload import WorkloadCalculator
 
 
 class FacultyFullBuilder:
@@ -202,15 +202,29 @@ class FacultyFullBuilder:
         return "\n".join(lines)
 
 
-def main():
+def main(data_dir=None):
     """Main execution"""
+    import argparse
+    from pathlib import Path
+    
+    if data_dir is None:
+        parser = argparse.ArgumentParser(description="Build faculty2Full.json")
+        parser.add_argument("--data-dir", required=True, help="Data directory path")
+        args = parser.parse_args()
+        data_dir = Path(args.data_dir)
+    else:
+        data_dir = Path(data_dir)
+    
+    stage1_dir = data_dir / "stage_1"
+    stage2_dir = data_dir / "stage_2"
+    
     print("Building faculty2Full.json...")
+    print(f"Data directory: {data_dir}")
     print()
     
     try:
         # Check if subjects2Full.json exists
-        script_dir = Path(__file__).parent
-        subjects_path = script_dir.parent / "subjects2Full.json"
+        subjects_path = stage2_dir / "subjects2Full.json"
         
         if not subjects_path.exists():
             print("✗ Error: subjects2Full.json not found!")
@@ -218,7 +232,7 @@ def main():
             return 1
         
         # Build faculty
-        builder = FacultyFullBuilder()
+        builder = FacultyFullBuilder(stage1_dir=str(stage1_dir), stage2_dir=str(stage2_dir))
         faculty_full = builder.build_all_faculty()
         
         # Save to file

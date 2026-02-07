@@ -151,16 +151,29 @@ class ComponentExpander:
         return errors
 
 
-def main():
+def main(data_dir=None):
     """Test the component expander"""
-    from data_loader import Stage1DataLoader
+    import argparse
+    from pathlib import Path
+    from timetable.scripts.stage2.data_loader import Stage1DataLoader
+    
+    if data_dir is None:
+        parser = argparse.ArgumentParser(description="Test component expansion")
+        parser.add_argument("--data-dir", required=True, help="Data directory path")
+        args = parser.parse_args()
+        data_dir = Path(args.data_dir)
+    else:
+        data_dir = Path(data_dir)
+    
+    stage1_dir = data_dir / "stage_1"
     
     print("Testing Component Expansion")
+    print(f"Data directory: {data_dir}")
     print("=" * 50)
     print()
     
     # Load data
-    loader = Stage1DataLoader()
+    loader = Stage1DataLoader(str(stage1_dir))
     config = loader.load_config()
     subjects = loader.load_all_subjects()
     

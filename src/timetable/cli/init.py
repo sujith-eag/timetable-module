@@ -128,11 +128,11 @@ def _copy_package_templates(data_path: Path, force: bool, verbose: bool) -> bool
 
 def _copy_project_templates(data_path: Path, force: bool, verbose: bool) -> None:
     """Copy templates from project directory (development fallback)."""
-    # Get the project root (where stage_1 directory exists)
+    # Get the package directory where templates are located
     import timetable
-    package_dir = Path(timetable.__file__).parent.parent.parent
+    package_dir = Path(timetable.__file__).parent
     
-    source_stage_1 = package_dir / "stage_1"
+    source_stage_1 = package_dir / "stages" / "stage_1"
     if source_stage_1.exists():
         _copy_from_directory(source_stage_1, data_path / "stage_1", force, verbose)
 

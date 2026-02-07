@@ -244,12 +244,26 @@ class Stage2Validator:
         print("=" * 60)
 
 
-def main():
+def main(data_dir=None):
     """Main execution"""
+    import argparse
+    from pathlib import Path
+    
+    if data_dir is None:
+        parser = argparse.ArgumentParser(description="Validate Stage 2 data")
+        parser.add_argument("--data-dir", required=True, help="Data directory path")
+        args = parser.parse_args()
+        data_dir = Path(args.data_dir)
+    else:
+        data_dir = Path(data_dir)
+    
+    stage2_dir = data_dir / "stage_2"
+    
     print("Validating Stage 2 data...")
+    print(f"Data directory: {data_dir}")
     print()
     
-    validator = Stage2Validator()
+    validator = Stage2Validator(stage2_dir=str(stage2_dir))
     
     try:
         is_valid = validator.validate()

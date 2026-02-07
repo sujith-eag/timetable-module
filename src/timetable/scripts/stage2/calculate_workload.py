@@ -279,22 +279,35 @@ class WorkloadCalculator:
         return stats
 
 
-def main():
+def main(data_dir=None):
     """Test the workload calculator"""
-    from data_loader import Stage1DataLoader
+    import argparse
+    from pathlib import Path
+    from timetable.scripts.stage2.data_loader import Stage1DataLoader
+    
+    if data_dir is None:
+        parser = argparse.ArgumentParser(description="Calculate faculty workload")
+        parser.add_argument("--data-dir", required=True, help="Data directory path")
+        args = parser.parse_args()
+        data_dir = Path(args.data_dir)
+    else:
+        data_dir = Path(data_dir)
+    
+    stage1_dir = data_dir / "stage_1"
+    stage2_dir = data_dir / "stage_2"
     
     print("Testing Workload Calculator")
+    print(f"Data directory: {data_dir}")
     print("=" * 60)
     print()
     
     # Load data
-    loader = Stage1DataLoader()
+    loader = Stage1DataLoader(str(stage1_dir))
     faculty = loader.load_faculty_basic()
     student_groups_data = loader.load_student_groups()
     
     # Load subjects full
-    script_dir = Path(__file__).parent
-    subjects_full_path = script_dir.parent / "subjects2Full.json"
+    subjects_full_path = stage2_dir / "subjects2Full.json"
     
     with open(subjects_full_path, 'r', encoding='utf-8') as f:
         subjects_data = json.load(f)

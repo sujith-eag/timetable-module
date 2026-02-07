@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Any
 
-from data_loader import Stage1DataLoader
-from expand_components import ComponentExpander
+from timetable.scripts.stage2.data_loader import Stage1DataLoader
+from timetable.scripts.stage2.expand_components import ComponentExpander
 
 
 class SubjectsFullBuilder:
@@ -225,14 +225,29 @@ class SubjectsFullBuilder:
         return "\n".join(lines)
 
 
-def main():
+def main(data_dir=None):
     """Main execution"""
+    import argparse
+    from pathlib import Path
+    
+    if data_dir is None:
+        parser = argparse.ArgumentParser(description="Build subjects2Full.json")
+        parser.add_argument("--data-dir", required=True, help="Data directory path")
+        args = parser.parse_args()
+        data_dir = Path(args.data_dir)
+    else:
+        data_dir = Path(data_dir)
+    
+    stage1_dir = data_dir / "stage_1"
+    stage2_dir = data_dir / "stage_2"
+    
     print("Building subjects2Full.json...")
+    print(f"Data directory: {data_dir}")
     print()
     
     try:
         # Build subjects
-        builder = SubjectsFullBuilder()
+        builder = SubjectsFullBuilder(stage1_dir=str(stage1_dir), stage2_dir=str(stage2_dir))
         subjects_full = builder.build_all_subjects()
         
         # Validate components

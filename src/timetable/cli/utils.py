@@ -29,13 +29,14 @@ error_console = Console(stderr=True)
 
 def get_data_dir(data_dir: Optional[str] = None) -> Path:
     """
-    Get the data directory from argument, environment variable, or settings.
+    Get the data directory from argument, environment variable, or auto-detection.
 
     Priority order:
     1. Explicit --data-dir argument
     2. TIMETABLE_DATA_DIR environment variable
-    3. Settings default data_dir
-    4. Current working directory (fallback)
+    3. Auto-detect current working directory (if it contains stage_1/, stage_2/, etc.)
+    4. Settings default data_dir
+    5. Current working directory (fallback)
 
     Args:
         data_dir: Explicit data directory path
@@ -53,10 +54,15 @@ def get_data_dir(data_dir: Optional[str] = None) -> Path:
         if env_dir:
             path = Path(env_dir)
         else:
-            # Fall back to settings default
-            from timetable.config.settings import get_settings
-            settings = get_settings()
-            path = settings.data_dir
+            # Try to auto-detect if current directory is a timetable directory
+            cwd = Path.cwd()
+            if _is_timetable_directory(cwd):
+                path = cwd
+            else:
+                # Fall back to settings default
+                from timetable.config.settings import get_settings
+                settings = get_settings()
+                path = settings.data_dir
 
     if not path.exists():
         raise click.ClickException(
@@ -65,6 +71,44 @@ def get_data_dir(data_dir: Optional[str] = None) -> Path:
         )
 
     return path
+
+
+def _is_timetable_directory(path: Path) -> bool:
+    """
+    Check if a directory appears to be a timetable data directory.
+
+    A timetable directory should contain stage_1/, stage_2/, etc. subdirectories
+    and at least a config.json file in stage_1/, but should NOT contain
+    development files like pyproject.toml, src/, etc.
+
+    Args:
+        path: Directory path to check
+
+    Returns:
+        True if directory appears to be a timetable data directory
+    """
+    if not path.is_dir():
+        return False
+
+    # Reject if this looks like a development/source directory
+    dev_files = ["pyproject.toml", "setup.py", "requirements.txt", "src", ".git"]
+    if any((path / dev_file).exists() for dev_file in dev_files):
+        return False
+
+    # Check for stage directories
+    stage_dirs = ["stage_1", "stage_2", "stage_3", "stage_4", "stage_5", "stage_6"]
+    stage_count = sum(1 for stage in stage_dirs if (path / stage).is_dir())
+
+    # Must have at least stage_1 and stage_2
+    if stage_count < 2:
+        return False
+
+    # Check for config.json in stage_1
+    config_file = path / "stage_1" / "config.json"
+    if not config_file.exists():
+        return False
+
+    return True
 
 
 def print_success(message: str) -> None:

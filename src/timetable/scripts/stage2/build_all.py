@@ -17,9 +17,9 @@ import argparse
 from pathlib import Path
 
 # Import individual build modules
-import build_subjects_full
-import build_faculty_full
-import validate_stage2
+from timetable.scripts.stage2 import build_subjects_full
+from timetable.scripts.stage2 import build_faculty_full
+from timetable.scripts.stage2 import validate_stage2
 
 
 def main():
@@ -37,12 +37,20 @@ def main():
         action='store_true',
         help="Skip validation after building"
     )
+    parser.add_argument(
+        "--data-dir",
+        required=True,
+        help="Data directory path"
+    )
     
     args = parser.parse_args()
+    
+    data_dir = Path(args.data_dir)
     
     print("=" * 60)
     print("STAGE 2 BUILD PIPELINE")
     print("=" * 60)
+    print(f"Data directory: {data_dir}")
     print()
     
     exit_code = 0
@@ -51,7 +59,7 @@ def main():
         # Step 1: Build subjects
         print("Step 1/2: Building subjects2Full.json...")
         print("-" * 60)
-        result = build_subjects_full.main()
+        result = build_subjects_full.main(str(data_dir))
         if result != 0:
             print("✗ Failed to build subjects2Full.json")
             return 1
@@ -60,7 +68,7 @@ def main():
         # Step 2: Build faculty
         print("Step 2/2: Building faculty2Full.json...")
         print("-" * 60)
-        result = build_faculty_full.main()
+        result = build_faculty_full.main(str(data_dir))
         if result != 0:
             print("✗ Failed to build faculty2Full.json")
             return 1
@@ -70,7 +78,7 @@ def main():
         # Step 3: Validate
         print("Validation: Checking generated data...")
         print("-" * 60)
-        result = validate_stage2.main()
+        result = validate_stage2.main(str(data_dir))
         if result != 0:
             print("✗ Validation failed")
             exit_code = 1

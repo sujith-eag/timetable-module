@@ -22,9 +22,13 @@ class Stage1DataLoader:
             stage1_dir: Path to stage_1 directory. If None, auto-detects.
         """
         if stage1_dir is None:
-            # Auto-detect stage_1 directory relative to this script
-            script_dir = Path(__file__).parent
-            self.stage1_dir = script_dir.parent.parent / "stage_1"
+            # Auto-detect stage_1 directory
+            import os
+            data_dir = os.environ.get('TIMETABLE_DATA_DIR')
+            if data_dir:
+                self.stage1_dir = Path(data_dir) / "stage_1"
+            else:
+                raise ValueError("stage1_dir not provided and TIMETABLE_DATA_DIR not set. Please provide explicit stage1_dir path or set TIMETABLE_DATA_DIR environment variable.")
         else:
             self.stage1_dir = Path(stage1_dir)
         
