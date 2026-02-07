@@ -3,27 +3,27 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "timetable"
+name = "timetable-builder"
 version = "0.1.0"
 description = "Academic Timetable Generation System - A comprehensive solution for generating and managing academic schedules"
 readme = "README.md"
-license = "MIT"
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
 authors = [
-    { name = "Eagle Campus", email = "dev@eaglecampus.edu" }
+    { name = "Sujith", email = "sujith.eag@gmail.com" }
 ]
 keywords = [
     "timetable",
     "scheduling",
     "academic",
     "education",
-    "constraint-satisfaction",
+    "university",
+    "timetable-generator",
+    "academic-scheduling",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
-    "Environment :: Web Environment",
-    "Framework :: FastAPI",
     "Intended Audience :: Education",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
@@ -34,6 +34,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Education",
     "Topic :: Office/Business :: Scheduling",
+    "Topic :: Utilities",
     "Typing :: Typed",
 ]
 
@@ -72,28 +73,22 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/eaglecampus/timetable"
-Documentation = "https://github.com/eaglecampus/timetable#readme"
-Repository = "https://github.com/eaglecampus/timetable"
-Issues = "https://github.com/eaglecampus/timetable/issues"
+Homepage = "https://github.com/sujith-eag/timetable-builder"
+Documentation = "https://github.com/sujith-eag/timetable-builder#readme"
+Repository = "https://github.com/sujith-eag/timetable-builder"
+Issues = "https://github.com/sujith-eag/timetable-builder/issues"
 
 [project.scripts]
 timetable = "timetable.cli:main"
-
-[project.entry-points."timetable.stages"]
-stage2 = "timetable.stages.stage2:Stage2Processor"
-stage3 = "timetable.stages.stage3:Stage3Processor"
-stage4 = "timetable.stages.stage4:Stage4Processor"
-stage6 = "timetable.stages.stage6:Stage6Processor"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/timetable"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/src",
-    "/tests",
-    "/schemas",
+    "src/timetable",
+    "README.md",
+    "LICENSE",
 ]
 
 # ==================== Testing ====================
