@@ -83,6 +83,31 @@ from timetable.models.stage3 import (
     TeachingAssignmentsFile,
 )
 
+from timetable.models.stage4 import (
+    AssignmentConstraints as Stage4AssignmentConstraints,
+    RoomInfo,
+    SchedulingAssignment,
+    SchedulingConfiguration,
+    SchedulingConstraints,
+    SchedulingInput,
+    SchedulingMetadata,
+    SlotCombination,
+    TimeSlotInfo,
+)
+
+from timetable.models.stage5 import (
+    AISchedule,
+    ScheduleMetadata,
+    ScheduledSession,
+)
+
+from timetable.models.stage6 import (
+    EnrichedSession,
+    EnrichedSessionMetadata,
+    EnrichedTimetable,
+    SupportingStaff,
+)
+
 __all__ = [
     # Stage 1: Config models
     "Config",
@@ -138,4 +163,23 @@ __all__ = [
     "SubjectCoverageEntry",
     "RoomRequirementStats",
     "ResourceAnalysis",
+    # Stage 4: Scheduling input
+    "SchedulingInput",
+    "SchedulingMetadata",
+    "SchedulingConfiguration",
+    "TimeSlotInfo",
+    "SlotCombination",
+    "RoomInfo",
+    "SchedulingConstraints",
+    "SchedulingAssignment",
+    "Stage4AssignmentConstraints",
+    # Stage 5: AI schedule output
+    "AISchedule",
+    "ScheduleMetadata",
+    "ScheduledSession",
+    # Stage 6: Enriched output
+    "EnrichedTimetable",
+    "EnrichedSessionMetadata",
+    "EnrichedSession",
+    "SupportingStaff",
 ]

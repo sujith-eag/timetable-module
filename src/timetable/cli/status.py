@@ -47,7 +47,7 @@ def status(ctx: click.Context, data_dir: Optional[str]) -> None:
         console.print()
 
         # Create status table
-        table = Table(title="Stage Status Overview", show_header=True, expand=True)
+        table = Table(title="Stage Status Overview", show_header=True)
         table.add_column("Stage", style="cyan", width=10)
         table.add_column("Description", style="white", width=30)
         table.add_column("Status", style="bold", width=12)
@@ -69,6 +69,15 @@ def status(ctx: click.Context, data_dir: Optional[str]) -> None:
                 ("assignments_sem3", lambda: loader.load_teaching_assignments(semester=3)),
                 ("statistics.json", lambda: loader.load_statistics()),
             ]),
+            (4, "Scheduling Input", [
+                ("schedulingInput.json", lambda: loader.load_scheduling_input()),
+            ]),
+            (5, "AI Schedule Output", [
+                ("ai_solved_schedule.json", lambda: loader.load_ai_schedule()),
+            ]),
+            (6, "Enriched Output", [
+                ("timetable_enriched.json", lambda: loader.load_enriched_timetable()),
+            ]),
         ]
 
         for stage_num, description, file_checks in stages_info:
@@ -78,11 +87,16 @@ def status(ctx: click.Context, data_dir: Optional[str]) -> None:
             for file_desc, load_fn in file_checks:
                 try:
                     data = load_fn()
-                    if hasattr(data, '__len__'):
+                    if hasattr(data, '__len__') and not isinstance(data, str) and not hasattr(data, 'model_fields'):
                         if hasattr(data, 'assignments'):
                             count = len(data.assignments)
+                        elif hasattr(data, 'student_groups'):
+                            count = len(data.student_groups)
                         else:
                             count = len(data)
+                        file_info.append(f"{file_desc}: {count}")
+                    elif hasattr(data, 'assignments'):  # Pydantic models with assignments
+                        count = len(data.assignments)
                         file_info.append(f"{file_desc}: {count}")
                     else:
                         file_info.append(f"{file_desc}: ✓")

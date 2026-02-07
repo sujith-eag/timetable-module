@@ -28,7 +28,7 @@ from .utils import (
 @click.option(
     "-s", "--stage",
     type=int,
-    help="Stage number to validate (1, 2, or 3).",
+    help="Stage number to validate (1, 2, 3, 4, 5 or 6).",
 )
 @click.option(
     "-a", "--all",
@@ -75,11 +75,11 @@ def validate(
 
         stages_to_validate = []
         if validate_all:
-            stages_to_validate = [1, 2, 3]
+            stages_to_validate = [1, 2, 3, 4, 5, 6]
         elif stage:
-            if stage not in [1, 2, 3]:
+            if stage not in [1, 2, 3, 4, 5, 6]:
                 raise click.ClickException(
-                    f"Invalid stage: {stage}. Must be 1, 2, or 3."
+                    f"Invalid stage: {stage}. Must be 1, 2, 3, 4, 5, or 6."
                 )
             stages_to_validate = [stage]
         else:
@@ -115,6 +115,12 @@ def validate(
                         result = _validate_stage2(loader, verbose)
                     elif s == 3:
                         result = _validate_stage3(loader, verbose)
+                    elif s == 4:
+                        result = _validate_stage4(loader, verbose)
+                    elif s == 5:
+                        result = _validate_stage5(loader, verbose)
+                    elif s == 6:
+                        result = _validate_stage6(loader, verbose)
                     else:
                         continue
 
@@ -238,6 +244,97 @@ def _validate_stage3(loader: DataLoader, verbose: bool) -> dict:
 
         stats = loader.load_statistics()
         items.append(f"Statistics: {stats.combined.total_assignments} total assignments")
+
+        return {"success": True, "items": items, "warnings": []}
+
+    except (DataLoadError, ValidationError) as e:
+        return {"success": False, "errors": [str(e)], "warnings": []}
+
+
+def _validate_stage4(loader: DataLoader, verbose: bool) -> dict:
+    """Validate Stage 4 data."""
+    items = []
+
+    try:
+        scheduling_input = loader.load_scheduling_input()
+        items.append(f"Scheduling Input: {len(scheduling_input.assignments)} assignments")
+        items.append(f"Time Slots: {len(scheduling_input.time_slots)} slots")
+        items.append(f"Rooms: {len(scheduling_input.rooms)} rooms")
+        items.append(f"Student Groups: {len(scheduling_input.student_groups)} groups")
+        
+        # Count assignments with constraints
+        assignments_with_constraints = sum(1 for a in scheduling_input.assignments 
+                                         if a.constraints.student_group_conflicts or 
+                                            a.constraints.faculty_conflicts or 
+                                            a.constraints.fixed_day or 
+                                            a.constraints.fixed_slot or 
+                                            a.constraints.must_be_in_room)
+        items.append(f"Assignments with constraints: {assignments_with_constraints}")
+
+        return {"success": True, "items": items, "warnings": []}
+
+    except (DataLoadError, ValidationError) as e:
+        return {"success": False, "errors": [str(e)], "warnings": []}
+
+
+def _validate_stage5(loader: DataLoader, verbose: bool) -> dict:
+    """Validate Stage 5 data."""
+    items = []
+
+    try:
+        ai_schedule = loader.load_ai_schedule()
+        items.append(f"AI Schedule: {len(ai_schedule.schedule)} sessions")
+        items.append(f"Total Sessions: {ai_schedule.metadata.total_sessions}")
+        
+        # Count sessions by day
+        days_count = {}
+        for session in ai_schedule.schedule:
+            days_count[session.day] = days_count.get(session.day, 0) + 1
+        
+        for day, count in sorted(days_count.items()):
+            items.append(f"  {day}: {count} sessions")
+        
+        # Count sessions by room
+        rooms_count = {}
+        for session in ai_schedule.schedule:
+            rooms_count[session.room_id] = rooms_count.get(session.room_id, 0) + 1
+        
+        unique_rooms = len(rooms_count)
+        items.append(f"Rooms used: {unique_rooms}")
+
+        return {"success": True, "items": items, "warnings": []}
+
+    except (DataLoadError, ValidationError) as e:
+        return {"success": False, "errors": [str(e)], "warnings": []}
+
+
+def _validate_stage6(loader: DataLoader, verbose: bool) -> dict:
+    """Validate Stage 6 data."""
+    items = []
+
+    try:
+        # Validate enriched timetable
+        enriched = loader.load_enriched_timetable()
+        items.append(f"Enriched Timetable: {len(enriched.timetable_a)} sessions")
+        items.append(f"Generated: {enriched.metadata.generated_at.strftime('%Y-%m-%d %H:%M')}")
+        items.append(f"Generator: {enriched.metadata.generator}")
+        
+        # Count sessions by day
+        days_count = {}
+        for session in enriched.timetable_a:
+            days_count[session.day] = days_count.get(session.day, 0) + 1
+        
+        for day, count in sorted(days_count.items()):
+            items.append(f"  {day}: {count} sessions")
+        
+        # Count by component type
+        component_count = {}
+        for session in enriched.timetable_a:
+            comp_type = session.component_type
+            component_count[comp_type] = component_count.get(comp_type, 0) + 1
+        
+        for comp_type, count in sorted(component_count.items()):
+            items.append(f"  {comp_type}: {count} sessions")
 
         return {"success": True, "items": items, "warnings": []}
 

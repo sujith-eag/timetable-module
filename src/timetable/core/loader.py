@@ -49,7 +49,6 @@ from timetable.models.stage1 import (
     FacultyFile,
     RoomPreference,
     RoomPreferenceFile,
-    StudentGroup,
     StudentGroupFile,
     Subject,
     SubjectFile,
@@ -63,8 +62,12 @@ from timetable.models.stage2 import (
 from timetable.models.stage3 import (
     StatisticsFile,
     StudentGroupOverlapConstraints,
-    TeachingAssignment,
     TeachingAssignmentsFile,
+)
+from timetable.models.stage4 import SchedulingInput
+from timetable.models.stage5 import AISchedule
+from timetable.models.stage6 import (
+    EnrichedTimetable,
 )
 
 logger = get_logger(__name__)
@@ -281,6 +284,10 @@ class DataLoader:
             DataLoadError: If file cannot be read
             ValidationError: If data is invalid
         """
+        return self._load_cached("config", lambda: self._load_config_impl())
+
+    def _load_config_impl(self) -> Config:
+        """Implementation of config loading."""
         filepath = self.stage_dir(1) / "config.json"
         config_file = load_and_validate(filepath, ConfigFile)
         logger.info(f"Loaded config with {len(config_file.config.time_slots)} time slots")
@@ -297,6 +304,10 @@ class DataLoader:
             DataLoadError: If file cannot be read
             ValidationError: If data is invalid
         """
+        return self._load_cached("faculty", lambda: self._load_faculty_impl())
+
+    def _load_faculty_impl(self) -> list[Faculty]:
+        """Implementation of faculty loading."""
         filepath = self.stage_dir(1) / "facultyBasic.json"
         faculty_file = load_and_validate(filepath, FacultyFile)
         logger.info(f"Loaded {len(faculty_file.faculty)} faculty members")
@@ -321,6 +332,15 @@ class DataLoader:
             DataLoadError: If file cannot be read
             ValidationError: If data is invalid
         """
+        cache_key = f"subjects_{semester}_{include_electives}"
+        return self._load_cached(cache_key, lambda: self._load_subjects_impl(semester, include_electives))
+
+    def _load_subjects_impl(
+        self,
+        semester: Optional[int],
+        include_electives: bool,
+    ) -> list[Subject]:
+        """Implementation of subjects loading."""
         subjects: list[Subject] = []
         stage1_dir = self.stage_dir(1)
 
@@ -337,6 +357,9 @@ class DataLoader:
             filepath = stage1_dir / filename
             if filepath.exists():
                 subject_file = load_and_validate(filepath, SubjectFile)
+                # Filter electives if not requested
+                if is_elective and not include_electives:
+                    continue
                 subjects.extend(subject_file.subjects)
                 logger.debug(
                     f"Loaded {len(subject_file.subjects)} subjects from {filename}"
@@ -360,6 +383,10 @@ class DataLoader:
             DataLoadError: If file cannot be read
             ValidationError: If data is invalid
         """
+        return self._load_cached("student_groups", lambda: self._load_student_groups_impl())
+
+    def _load_student_groups_impl(self) -> StudentGroupFile:
+        """Implementation of student groups loading."""
         filepath = self.stage_dir(1) / "studentGroups.json"
         groups_file = load_and_validate(filepath, StudentGroupFile)
         logger.info(
@@ -545,6 +572,67 @@ class DataLoader:
             "statistics": self.load_statistics(),
         }
 
+    def load_scheduling_input(self) -> SchedulingInput:
+        """
+        Load Stage 4 scheduling input data.
+
+        Returns:
+            SchedulingInput: Validated scheduling input data
+
+        Raises:
+            DataLoadError: If file cannot be read
+            ValidationError: If data is invalid
+        """
+        return self._load_cached("scheduling_input", lambda: self._load_scheduling_input_impl())
+
+    def _load_scheduling_input_impl(self) -> SchedulingInput:
+        """Implementation of scheduling input loading."""
+        filepath = self.stage_dir(4) / "schedulingInput.json"
+        scheduling_input = load_and_validate(filepath, SchedulingInput)
+        logger.info(
+            f"Loaded scheduling input: {scheduling_input.metadata.total_assignments} assignments, "
+            f"{len(scheduling_input.student_groups)} student groups, "
+            f"{scheduling_input.metadata.total_rooms} rooms"
+        )
+        return scheduling_input
+
+    def load_ai_schedule(self) -> AISchedule:
+        """
+        Load Stage 5 AI-generated schedule data.
+
+        Returns:
+            AISchedule: Validated AI-generated schedule data
+
+        Raises:
+            DataLoadError: If file cannot be read
+            ValidationError: If data is invalid
+        """
+        filepath = self.stage_dir(5) / "ai_solved_schedule.json"
+        ai_schedule = load_and_validate(filepath, AISchedule)
+        logger.info(
+            f"Loaded AI schedule: {ai_schedule.metadata.total_sessions} sessions scheduled"
+        )
+        return ai_schedule
+
+    def load_enriched_timetable(self) -> EnrichedTimetable:
+        """
+        Load Stage 6 enriched timetable data.
+
+        Returns:
+            EnrichedTimetable: Validated enriched timetable data
+
+        Raises:
+            DataLoadError: If file cannot be read
+            ValidationError: If data is invalid
+        """
+        filepath = self.stage_dir(6) / "timetable_enriched.json"
+        enriched_timetable = load_and_validate(filepath, EnrichedTimetable)
+        logger.info(
+            f"Loaded enriched timetable: {enriched_timetable.metadata.total_sessions} sessions, "
+            f"generated by {enriched_timetable.metadata.generator}"
+        )
+        return enriched_timetable
+
     # ==================== Convenience Methods ====================
 
     def load_all_stage1(self) -> dict[str, Any]:
@@ -667,3 +755,21 @@ def load_overlap_constraints(filepath: Union[str, Path]) -> StudentGroupOverlapC
 def load_statistics(filepath: Union[str, Path]) -> StatisticsFile:
     """Load and validate a statistics.json file."""
     return load_and_validate(filepath, StatisticsFile)
+
+
+def load_scheduling_input(filepath: Union[str, Path]) -> SchedulingInput:
+    """Load and validate a schedulingInput.json file."""
+    return load_and_validate(filepath, SchedulingInput)
+
+
+def load_ai_schedule(filepath: Union[str, Path]) -> AISchedule:
+    """Load and validate an ai_solved_schedule.json file."""
+    return load_and_validate(filepath, AISchedule)
+
+
+# Stage 6 convenience functions
+
+def load_enriched_timetable(filepath: Union[str, Path]) -> EnrichedTimetable:
+    """Load and validate a timetable_enriched.json file."""
+    return load_and_validate(filepath, EnrichedTimetable)
+
