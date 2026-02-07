@@ -44,11 +44,14 @@ def build(ctx: click.Context) -> None:
     pass
 
 
-def _run_build_script(script_path: Path, cwd: Path, description: str) -> tuple[bool, str]:
+def _run_build_script(script_path: Path, cwd: Path, data_path: Path, description: str, *extra_args: str) -> tuple[bool, str]:
     """Run a build script and return success status and output."""
     try:
+        cmd = [sys.executable, str(script_path), "--data-dir", str(data_path)]
+        cmd.extend(extra_args)
+        
         result = subprocess.run(
-            [sys.executable, str(script_path)],
+            cmd,
             cwd=cwd,
             capture_output=True,
             text=True,
@@ -103,7 +106,9 @@ def build_stage2(
     """
     try:
         data_path = get_data_dir(data_dir)
-        scripts_dir = data_path / "stage_2" / "scripts"
+        # Scripts are now in the package, not in the data directory
+        import timetable
+        scripts_dir = Path(timetable.__file__).parent / "scripts" / "stage2"
         
         if not scripts_dir.exists():
             raise click.ClickException(f"Stage 2 scripts directory not found: {scripts_dir}")
@@ -150,7 +155,7 @@ def build_stage2(
                     progress.update(task, advance=1)
                     continue
                 
-                success, output = _run_build_script(script_path, scripts_dir, description)
+                success, output = _run_build_script(script_path, scripts_dir, data_path, description)
                 results.append((description, success, output))
                 
                 if verbose and output:
@@ -248,7 +253,9 @@ def build_stage3(
     """
     try:
         data_path = get_data_dir(data_dir)
-        scripts_dir = data_path / "stage_3" / "scripts"
+        # Scripts are now in the package, not in the data directory
+        import timetable
+        scripts_dir = Path(timetable.__file__).parent / "scripts" / "stage3"
         
         if not scripts_dir.exists():
             raise click.ClickException(f"Stage 3 scripts directory not found: {scripts_dir}")
@@ -302,7 +309,7 @@ def build_stage3(
                     progress.update(task, advance=1)
                     continue
                 
-                success, output = _run_build_script(script_path, scripts_dir, description)
+                success, output = _run_build_script(script_path, scripts_dir, data_path, description)
                 results.append((description, success, output))
                 
                 if verbose and output:
@@ -398,11 +405,13 @@ def build_stage4(
     """
     try:
         data_path = get_data_dir(data_dir)
-        scripts_dir = data_path / "stage_4" / "scripts"
-
+        # Scripts are now in the package, not in the data directory
+        import timetable
+        scripts_dir = Path(timetable.__file__).parent / "scripts" / "stage4"
+        
         if not scripts_dir.exists():
             raise click.ClickException(f"Stage 4 scripts directory not found: {scripts_dir}")
-
+        
         print_header("Stage 4 Build", f"Data directory: {data_path}")
         console.print()
 
@@ -446,18 +455,18 @@ def build_stage4(
                     progress.update(task, advance=1)
                     continue
 
-                success, output = _run_build_script(script_path, scripts_dir, description)
+                success, output = _run_build_script(script_path, scripts_dir, data_path, description)
                 results.append((description, success, output))
-
+                
                 if verbose and output:
                     console.print(f"\n[dim]{output}[/dim]")
-
+                
                 progress.update(task, advance=1)
-
+            
             progress.update(task, status="Complete")
-
+        
         console.print()
-
+        
         # Show results
         all_success = True
         for description, success, output in results:
@@ -471,7 +480,7 @@ def build_stage4(
                         if line.strip():
                             console.print(f"    [dim]{line}[/dim]")
                 all_success = False
-
+        
         console.print()
 
         if all_success:
@@ -534,11 +543,13 @@ def build_stage5(
     """
     try:
         data_path = get_data_dir(data_dir)
-        scripts_dir = data_path / "stage_5" / "scripts"
-
+        # Scripts are now in the package, not in the data directory
+        import timetable
+        scripts_dir = Path(timetable.__file__).parent / "scripts" / "stage5"
+        
         if not scripts_dir.exists():
             raise click.ClickException(f"Stage 5 scripts directory not found: {scripts_dir}")
-
+        
         print_header("Stage 5 Build", f"Data directory: {data_path}")
         console.print()
 
@@ -580,18 +591,18 @@ def build_stage5(
                     progress.update(task, advance=1)
                     continue
 
-                success, output = _run_build_script(script_path, scripts_dir, description)
+                success, output = _run_build_script(script_path, scripts_dir, data_path, description)
                 results.append((description, success, output))
-
+                
                 if verbose and output:
                     console.print(f"\n[dim]{output}[/dim]")
-
+                
                 progress.update(task, advance=1)
-
+            
             progress.update(task, status="Complete")
-
+        
         console.print()
-
+        
         # Show results
         all_success = True
         for description, success, output in results:
@@ -676,8 +687,10 @@ def build_stage6(
     """
     try:
         data_path = get_data_dir(data_dir)
-        scripts_dir = data_path / "stage_6" / "scripts"
-
+        # Scripts are now in the package, not in the data directory
+        import timetable
+        scripts_dir = Path(timetable.__file__).parent / "scripts" / "stage6"
+        
         if not scripts_dir.exists():
             raise click.ClickException(f"Stage 6 scripts directory not found: {scripts_dir}")
 
@@ -729,18 +742,23 @@ def build_stage6(
                     progress.update(task, advance=1)
                     continue
 
-                success, output = _run_build_script(script_path, scripts_dir, description)
+                # Special handling for enrich_schedule.py which needs schedule file argument
+                if script_name == "enrich_schedule.py":
+                    success, output = _run_build_script(script_path, scripts_dir, data_path, description, "ai_solved_schedule.json")
+                else:
+                    success, output = _run_build_script(script_path, scripts_dir, data_path, description)
+                
                 results.append((description, success, output))
-
+                
                 if verbose and output:
                     console.print(f"\n[dim]{output}[/dim]")
-
+                
                 progress.update(task, advance=1)
-
+            
             progress.update(task, status="Complete")
-
+        
         console.print()
-
+        
         # Show results
         all_success = True
         for description, success, output in results:

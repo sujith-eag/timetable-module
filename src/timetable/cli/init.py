@@ -31,7 +31,6 @@ INIT_CONFIG = {
         "logs",
         "schemas"
     ],
-    "scripts_stages": [2, 3, 4, 5, 6],  # Stages that have build scripts
 }
 
 
@@ -101,15 +100,6 @@ def _create_directory_structure(data_path: Path, verbose: bool) -> None:
         if verbose:
             print_info(f"Created directory: {directory}")
 
-        # Create scripts subdirectory for stages that need it
-        if dirname.startswith("stage_") and dirname != "stage_1":
-            stage_num = int(dirname.split("_")[1])
-            if stage_num in INIT_CONFIG["scripts_stages"]:
-                scripts_dir = directory / "scripts"
-                scripts_dir.mkdir(parents=True, exist_ok=True)
-                if verbose:
-                    print_info(f"Created scripts directory: {scripts_dir}")
-
 
 def _copy_template_files(data_path: Path, force: bool, verbose: bool) -> None:
     """Copy template files from package data."""
@@ -145,9 +135,6 @@ def _copy_project_templates(data_path: Path, force: bool, verbose: bool) -> None
     source_stage_1 = package_dir / "stage_1"
     if source_stage_1.exists():
         _copy_from_directory(source_stage_1, data_path / "stage_1", force, verbose)
-    
-    # Copy scripts
-    _copy_scripts(package_dir, data_path, force, verbose)
 
 
 def _copy_from_directory(source_dir: Path, dest_dir: Path, force: bool, verbose: bool) -> bool:
@@ -184,11 +171,6 @@ def _copy_scripts(project_root: Path, data_path: Path, force: bool, verbose: boo
                     print_info(f"Skipping existing scripts for stage {stage_num}")
                 continue
             
-            shutil.copytree(source_scripts, dest_scripts, dirs_exist_ok=True)
-            if verbose:
-                print_info(f"Copied scripts for stage {stage_num}")
-
-
 def _create_env_file(data_path: Path, verbose: bool) -> None:
     """Create a .env file with basic configuration."""
     env_file = data_path / ".env"

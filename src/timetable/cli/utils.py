@@ -47,7 +47,7 @@ def get_data_dir(data_dir: Optional[str] = None) -> Path:
         click.ClickException: If no data directory specified or found
     """
     if data_dir:
-        path = Path(data_dir)
+        path = Path(data_dir).resolve()
     else:
         env_dir = os.environ.get("TIMETABLE_DATA_DIR")
         if env_dir:
