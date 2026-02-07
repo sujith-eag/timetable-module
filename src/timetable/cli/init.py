@@ -38,7 +38,7 @@ INIT_CONFIG = {
 @click.option(
     "-d", "--data-dir",
     type=click.Path(exists=False),
-    help="Path to the data directory to initialize.",
+    help="Path to the timetable project directory.",
 )
 @click.option(
     "--force",
@@ -50,27 +50,27 @@ def init(ctx: click.Context, data_dir: Optional[str], force: bool) -> None:
     """
     Initialize a new timetable project.
 
-    Creates the data directory structure and copies template Stage 1 files.
-    This sets up a new timetable project ready for customization.
+    Creates the project directory and sets up the stage structure with template files.
+    The project will have its own configuration and data isolation.
 
     \b
     Examples:
-        timetable init                           # Initialize in default location
-        timetable init --data-dir ./my-project   # Initialize in specific directory
-        timetable init --force                   # Overwrite existing files
+        timetable init --data-dir ~/projects/my_university_2026
+        timetable init -d ./my_timetable_project --force
     """
     verbose = ctx.obj.get("verbose", False)
 
     try:
-        # Determine data directory
+        # Determine project directory
         if data_dir:
             data_path = Path(data_dir)
         else:
-            settings = get_settings()
-            data_path = settings.data_dir
+            raise click.ClickException("Must specify --data-dir for the project directory.")
+
+        data_path.mkdir(parents=True, exist_ok=True)
 
         print_header(f"Initializing Timetable Project")
-        print_info(f"Data directory: {data_path}")
+        print_info(f"Project directory: {data_path}")
 
         # Create directory structure
         _create_directory_structure(data_path, verbose)
@@ -84,8 +84,9 @@ def init(ctx: click.Context, data_dir: Optional[str], force: bool) -> None:
         print_success("✅ Timetable project initialized successfully!")
         print_info(f"Next steps:")
         print_info(f"  1. Edit the Stage 1 files in {data_path}/stage_1/")
-        print_info(f"  2. Run: timetable validate --stage 1")
-        print_info(f"  3. Run: timetable build all")
+        print_info(f"  2. Run: cd {data_path}")
+        print_info(f"  3. Run: timetable validate config")
+        print_info(f"  4. Run: timetable build all")
 
     except Exception as e:
         print_error(f"Failed to initialize project: {e}")
