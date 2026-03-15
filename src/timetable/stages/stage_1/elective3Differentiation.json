@@ -1,0 +1,68 @@
+{
+  "description": "Defines how elective components should be differentiated by section",
+  "rules": [
+    {
+      "electiveCategory": "AD",
+      "categoryName": "Advanced Development Electives",
+      "subjects": [
+        "24MCAAD1",
+        "24MCAAD4",
+        "24MCAAD5"
+      ],
+      "differentiation": {
+        "theory": {
+          "separateSections": false,
+          "combinedGroups": [
+            "ELEC_AD_A1",
+            "ELEC_AD_B1"
+          ],
+          "description": "Theory classes are COMBINED for both sections A and B"
+        },
+        "tutorial": {
+          "separateSections": false,
+          "combinedGroups": [
+            "ELEC_AD_A1",
+            "ELEC_AD_B1"
+          ],
+          "description": "Tutorial classes are COMBINED for both sections A and B"
+        },
+        "practical": {
+          "separateSections": true,
+          "description": "Practical classes are SEPARATE for sections A and B"
+        }
+      }
+    },
+    {
+      "electiveCategory": "SS",
+      "categoryName": "Systems and Security Electives",
+      "subjects": [
+        "24MCASS2",
+        "24MCASS3",
+        "24MCASS5"
+      ],
+      "differentiation": {
+        "theory": {
+          "separateSections": false,
+          "combinedGroups": [
+            "ELEC_SS_G1"
+          ],
+          "description": "Theory classes are COMBINED for mixed group (A+B)"
+        },
+        "tutorial": {
+          "separateSections": false,
+          "combinedGroups": [
+            "ELEC_SS_G1"
+          ],
+          "description": "Tutorial classes are COMBINED for mixed group (A+B)"
+        },
+        "practical": {
+          "separateSections": false,
+          "combinedGroups": [
+            "ELEC_SS_G1"
+          ],
+          "description": "Practical classes are COMBINED for mixed group (A+B)"
+        }
+      }
+    }
+  ]
+}

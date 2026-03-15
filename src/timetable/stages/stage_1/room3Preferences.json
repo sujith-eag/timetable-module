@@ -1,0 +1,253 @@
+{
+  "roomPreferences": [
+    {
+      "subjectCode": "24MCA32",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "MCA_SEM3_A",
+      "preferredRooms": ["LAB-1"],
+      "roomAllocations": {
+        "24MCA32_PR_A": "LAB-1"
+      }
+    },
+    {
+      "subjectCode": "24MCA32",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "MCA_SEM3_B",
+      "preferredRooms": ["LAB-2"],
+      "roomAllocations": {
+        "24MCA32_PR_B": "LAB-2"
+      }
+    },
+    {
+      "subjectCode": "24MCA32",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "MCA_SEM3_A",
+      "preferredRooms": ["AB-411", "AB-402", "AB-412"],
+      "roomAllocations": {
+        "24MCA32_TH": "AB-411"
+      }
+    },
+    {
+      "subjectCode": "24MCA32",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "MCA_SEM3_B",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412"],
+      "roomAllocations": {
+        "24MCA32_TH": "AB-402"
+      }
+    },
+    {
+      "subjectCode": "24MCA31",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "MCA_SEM3_A",
+      "preferredRooms": ["AB-411", "AB-402", "AB-412"],
+      "roomAllocations": {
+        "24MCA31_TH": "AB-411"
+      }
+    },
+    {
+      "subjectCode": "24MCA31",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "MCA_SEM3_B",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412"],
+      "roomAllocations": {
+        "24MCA31_TH": "AB-402"
+      }
+    },
+    {
+      "subjectCode": "24MCAAD1",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_A1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412"]
+    },
+    {
+      "subjectCode": "24MCAAD1",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_B1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412"]
+    },
+    {
+      "subjectCode": "24MCAAD4",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_A1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412"],
+      "roomAllocations": {
+        "24MCAAD4_TH": "AB-402"
+      }
+    },
+    {
+      "subjectCode": "24MCAAD4",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_B1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412"],
+      "roomAllocations": {
+        "24MCAAD4_TH": "AB-402"
+      }
+    },
+    {
+      "subjectCode": "24MCASS5",
+      "componentType": "theory",
+      "semester": 3,
+      "studentGroupId": "ELEC_SS_G1",
+      "preferredRooms": ["AB-411", "AB-402", "AB-412"],
+      "roomAllocations": {
+        "24MCASS5_TH": "AB-411"
+      }
+    },
+    {
+      "subjectCode": "24MCAAD1",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_A1",
+      "preferredRooms": ["LAB-1"]
+    },
+    {
+      "subjectCode": "24MCAAD1",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_B1",
+      "preferredRooms": ["LAB-1"]
+    },
+    {
+      "subjectCode": "24MCAAD1",
+      "componentType": "tutorial",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_A1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412", "AB-413"]
+    },
+    {
+      "subjectCode": "24MCAAD1",
+      "componentType": "tutorial",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_B1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412", "AB-413"]
+    },
+    {
+      "subjectCode": "24MCAAD4",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_A1",
+      "preferredRooms": ["LAB-1"]
+    },
+    {
+      "subjectCode": "24MCAAD4",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_B1",
+      "preferredRooms": ["LAB-1"]
+    },
+    {
+      "subjectCode": "24MCAAD5",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_A1",
+      "preferredRooms": ["LAB-1"]
+    },
+    {
+      "subjectCode": "24MCAAD5",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_B1",
+      "preferredRooms": ["LAB-1"]
+    },
+    {
+      "subjectCode": "24MCAAD5",
+      "componentType": "tutorial",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_A1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412", "AB-413"]
+    },
+    {
+      "subjectCode": "24MCAAD5",
+      "componentType": "tutorial",
+      "semester": 3,
+      "studentGroupId": "ELEC_AD_B1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412", "AB-413"]
+    },
+    {
+      "subjectCode": "24MCASS2",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_SS_G1",
+      "preferredRooms": ["LAB-1", "LAB-2"]
+    },
+    {
+      "subjectCode": "24MCASS2",
+      "componentType": "tutorial",
+      "semester": 3,
+      "studentGroupId": "ELEC_SS_G1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412", "AB-413"]
+    },
+    {
+      "subjectCode": "24MCASS3",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_SS_G1",
+      "preferredRooms": ["LAB-1", "LAB-2"]
+    },
+    {
+      "subjectCode": "24MCASS3",
+      "componentType": "tutorial",
+      "semester": 3,
+      "studentGroupId": "ELEC_SS_G1",
+      "preferredRooms": ["AB-402", "AB-411", "AB-412", "AB-413"]
+    },
+    {
+      "subjectCode": "24MCASS5",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "ELEC_SS_G1",
+      "preferredRooms": ["LAB-1", "LAB-2"]
+    },
+    {
+      "subjectCode": "24MCAP1",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "MCA_SEM3_A",
+      "preferredRooms": ["LAB-1"],
+      "roomAllocations": {
+        "24MCAP1_PR_A": "LAB-1"
+      }
+    },
+    {
+      "subjectCode": "24MCAP1",
+      "componentType": "practical",
+      "semester": 3,
+      "studentGroupId": "MCA_SEM3_B",
+      "preferredRooms": ["LAB-2"],
+      "roomAllocations": {
+        "24MCAP1_PR_B": "LAB-2"
+      }
+    },
+    {
+      "subjectCode": "25MCAP2",
+      "componentType": "practical",
+      "semester": 4,
+      "studentGroupId": "MCA_SEM4_ALL",
+      "preferredRooms": ["LAB-1", "LAB-2", "PROJECT-ROOM"],
+      "roomAllocations": {
+        "25MCAP2_PR": "PROJECT-ROOM"
+      }
+    },
+    {
+      "subjectCode": "25MCAS1",
+      "componentType": "practical",
+      "semester": 4,
+      "studentGroupId": "MCA_SEM4_ALL",
+      "preferredRooms": ["AB-411", "AB-412", "AB-402"],
+      "roomAllocations": {
+        "25MCAS1_PR": "AB-411"
+      }
+    }
+  ]
+}

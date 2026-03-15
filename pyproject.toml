@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "timetable-builder"
-version = "0.1.0"
+version = "0.2.0"
 description = "Academic Timetable Generation System - A comprehensive solution for generating and managing academic schedules"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -83,10 +83,14 @@ timetable = "timetable.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/timetable"]
+include = [
+    "src/timetable/stages/stage_1/*.json",
+]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "src/timetable",
+    "src/timetable/stages/stage_1/*.json",
     "README.md",
     "LICENSE",
 ]

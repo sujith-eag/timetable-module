@@ -24,6 +24,13 @@ from timetable.core.loader import (
     validate_model,
 )
 from timetable.core.logging import get_logger, setup_logging
+from timetable.core.semester_detector import (
+    detect_active_semesters,
+    describe_active_semesters,
+    get_elective_differentiation_files,
+    get_subject_files_for_semesters,
+    is_semester_active,
+)
 
 __all__ = [
     # Exceptions
@@ -46,4 +53,10 @@ __all__ = [
     "load_subjects",
     "load_student_groups",
     "load_room_preferences",
+    # Semester Detection
+    "detect_active_semesters",
+    "is_semester_active",
+    "get_subject_files_for_semesters",
+    "get_elective_differentiation_files",
+    "describe_active_semesters",
 ]

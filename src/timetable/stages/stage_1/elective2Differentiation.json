@@ -1,0 +1,44 @@
+{
+  "description": "Defines how elective components should be differentiated by section for Semester 2",
+  "rules": [
+    {
+      "electiveCategory": "DEFAULT",
+      "groupId": "ALL_SEM2_ELECTIVES",
+      "subjects": [
+        "25MCAE11",
+        "25MCAE12",
+        "25MCAE13"
+      ],
+      "description": "Default behavior for all Semester 2 electives",
+      "differentiation": {
+        "theory": {
+          "separateSections": false,
+          "combinedGroups": [
+            "ELEC_DEV_G1",
+            "ELEC_AI_G1",
+            "ELEC_CS_G1"
+          ],
+          "description": "All theory components are COMBINED for mixed group (A+B)"
+        },
+        "tutorial": {
+          "separateSections": false,
+          "combinedGroups": [
+            "ELEC_DEV_G1",
+            "ELEC_AI_G1",
+            "ELEC_CS_G1"
+          ],
+          "description": "All tutorial components are COMBINED for mixed group (A+B)"
+        },
+        "practical": {
+          "separateSections": false,
+          "combinedGroups": [
+            "ELEC_DEV_G1",
+            "ELEC_AI_G1",
+            "ELEC_CS_G1"
+          ],
+          "description": "All practical components are COMBINED for mixed group (A+B)"
+        }
+      }
+    }
+  ]
+}

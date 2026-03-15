@@ -1,0 +1,157 @@
+{
+     "faculty": [
+      {
+        "facultyId": "SA",
+        "name": "Dr S. Ajitha",
+        "designation": "Professor",
+        "assignedSubjects": [
+          {"24MCA31" : ["B"]}
+        ],
+        "supportingSubjects": [
+          "24MCASS5"
+        ]
+      },
+      {
+        "facultyId": "KR",
+        "name": "Mrs Komala R",
+        "designation": "Assistant Professor",
+        "assignedSubjects": [
+          {"24MCA31": ["A"]},
+          "24MCASS5"
+        ],
+        "supportingSubjects": [
+          "24MCAAD1",
+          "24MCAAD5",
+          "25MCA16"
+        ]
+      },
+      {
+        "facultyId": "RG",
+        "name": "Ms Geethanjali R",
+        "designation": "Assistant Professor",
+        "assignedSubjects": [
+          {"24MCA32": ["A", "B"]}
+        ],
+        "supportingSubjects": [
+          "25MCA11",
+          "25MCA12",
+          "25MCA14"
+        ]
+      },
+      {
+        "facultyId": "MM",
+        "name": "Dr M. Manjunath",
+        "designation": "Associate Professor",
+        "assignedSubjects": [
+          "24MCAAD1",
+          {"25MCA15": ["B"]},
+          {"25MCA16": ["B"]}
+        ],
+        "supportingSubjects": [
+          "25MCA17"
+        ]
+      },
+      {
+        "facultyId": "DEG",
+        "name": "Dr D. Evangelin Geetha",
+        "designation": "Professor",
+        "assignedSubjects": [
+          "24MCAAD4"
+        ],
+        "supportingSubjects": [
+          "24MCAAD5"
+        ]
+      },
+      {
+        "facultyId": "DU",
+        "name": "Ms Deepali U",
+        "designation": "Assistant Professor",
+        "assignedSubjects": [
+          "24MCAAD5"
+        ],
+        "supportingSubjects": [
+          "25MCA11",
+          "25MCA17"
+        ]
+      },
+      {
+        "facultyId": "PNP",
+        "name": "Dr Preethi N Patil",
+        "designation": "Associate Professor",
+        "assignedSubjects": [
+          "24MCASS2",
+          {"25MCA12": ["A", "B"]}
+        ],
+        "supportingSubjects": [
+          "25MCA13"
+        ]
+      },
+      {
+        "facultyId": "SK",
+        "name": "Mrs Savitha K",
+        "designation": "Assistant Professor",
+        "assignedSubjects": [
+          "24MCASS3",
+          {"25MCA14": ["A"]}
+        ],
+        "supportingSubjects": [
+          "25MCA11",
+          "25MCA13",
+          "25MCA16"
+        ]
+      },
+      {
+        "facultyId": "SM",
+        "name": "Ms Swathi M",
+        "designation": "Assistant Professor",
+        "assignedSubjects": [
+          {"25MCA11": ["A"]},
+          {"25MCA15": ["A"]},
+          {"25MCA16": ["A"]}
+        ],
+        "supportingSubjects": [
+          "25MCA13"
+        ]
+      },
+      {
+        "facultyId": "SH",
+        "name": "Ms Sahana",
+        "designation": "Assistant Professor",
+        "assignedSubjects": [
+          {"25MCA11": ["B"]},
+          {"25MCA14": ["B"]}
+        ],
+        "supportingSubjects": [
+          "25MCA11"
+        ]
+      },
+      {
+        "facultyId": "KS",
+        "name": "Ms Komal S",
+        "designation": "Assistant Professor",
+        "assignedSubjects": [
+          {"25MCA17": ["A", "B"]}
+        ],
+        "supportingSubjects": [
+          "24MCAAD4",
+          "24MCA32",
+          "25MCA12",
+          "25MCA13",
+          "25MCA14"
+        ]
+      },
+      {
+        "facultyId": "SZ",
+        "name": "Ms Shazia Mannan",
+        "designation": "Assistant Professor",
+        "assignedSubjects": [
+          {"25MCA13": ["A", "B"]}
+        ],
+        "supportingSubjects": [
+    	  "24MCA32",
+    	  "25MCA14",
+    	  "25MCA16"
+        ]
+      }
+   ]        
+}

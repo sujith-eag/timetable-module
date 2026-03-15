@@ -1,70 +1,94 @@
 {
-    "subjects": [
-      {
-        "subjectCode": "24MCAAD1",
-        "shortCode": "AIOT",
-        "title": "Artificial Intelligence of Things",
-        "creditPattern": [0, 1, 2],
-        "totalCredits": 3,
-        "department": "MCA",
-        "semester": 3,
-        "isElective": true,
-        "type": "elective"
-      },
-      {
-        "subjectCode": "24MCAAD4",
-        "shortCode": "NLP",
-        "title": "Natural Language Processing",
-        "creditPattern": [2, 0, 1],
-        "totalCredits": 3,
-        "department": "MCA",
-        "semester": 3,
-        "isElective": true,
-        "type": "elective"
-      },
-      {
-        "subjectCode": "24MCAAD5",
-        "shortCode": "GenAI",
-        "title": "Generative AI and Prompt Engineering",
-        "creditPattern": [0, 1, 2],
-        "totalCredits": 3,
-        "department": "MCA",
-        "semester": 3,
-        "isElective": true,
-        "type": "elective"
-      },
-      {
-        "subjectCode": "24MCASS2",
-        "shortCode": "DevOps",
-        "title": "DevOps",
-        "creditPattern": [0, 1, 2],
-        "totalCredits": 3,
-        "department": "MCA",
-        "semester": 3,
-        "isElective": true,
-        "type": "elective"
-      },
-      {
-        "subjectCode": "24MCASS3",
-        "shortCode": "CC",
-        "title": "Cloud Computing",
-        "creditPattern": [0, 1, 2],
-        "totalCredits": 3,
-        "department": "MCA",
-        "semester": 3,
-        "isElective": true,
-        "type": "elective"
-      },
-      {
-        "subjectCode": "24MCASS5",
-        "shortCode": "EH",
-        "title": "Ethical Hacking",
-        "creditPattern": [2, 0, 1],
-        "totalCredits": 3,
-        "department": "MCA",
-        "semester": 3,
-        "isElective": true,
-        "type": "elective"
-      }
-    ]
+  "subjects": [
+    {
+      "subjectCode": "24MCAAD1",
+      "shortCode": "AIOT",
+      "title": "Artificial Intelligence of Things",
+      "creditPattern": [
+        0,
+        1,
+        2
+      ],
+      "totalCredits": 3,
+      "department": "MCA",
+      "semester": 3,
+      "isElective": true,
+      "type": "elective"
+    },
+    {
+      "subjectCode": "24MCAAD4",
+      "shortCode": "NLP",
+      "title": "Natural Language Processing",
+      "creditPattern": [
+        2,
+        0,
+        1
+      ],
+      "totalCredits": 3,
+      "department": "MCA",
+      "semester": 3,
+      "isElective": true,
+      "type": "elective"
+    },
+    {
+      "subjectCode": "24MCAAD5",
+      "shortCode": "GenAI",
+      "title": "Generative AI and Prompt Engineering",
+      "creditPattern": [
+        0,
+        1,
+        2
+      ],
+      "totalCredits": 3,
+      "department": "MCA",
+      "semester": 3,
+      "isElective": true,
+      "type": "elective"
+    },
+    {
+      "subjectCode": "24MCASS2",
+      "shortCode": "DevOps",
+      "title": "DevOps",
+      "creditPattern": [
+        0,
+        1,
+        2
+      ],
+      "totalCredits": 3,
+      "department": "MCA",
+      "semester": 3,
+      "isElective": true,
+      "type": "elective"
+    },
+    {
+      "subjectCode": "24MCASS3",
+      "shortCode": "CC",
+      "title": "Cloud Computing",
+      "creditPattern": [
+        0,
+        1,
+        2
+      ],
+      "totalCredits": 3,
+      "department": "MCA",
+      "semester": 3,
+      "isElective": true,
+      "type": "elective"
+    },
+    {
+      "subjectCode": "24MCASS5",
+      "shortCode": "EH",
+      "title": "Ethical Hacking",
+      "creditPattern": [
+        2,
+        0,
+        1
+      ],
+      "totalCredits": 3,
+      "department": "MCA",
+      "semester": 3,
+      "isElective": true,
+      "type": "elective"
+    }
+  ]
 }

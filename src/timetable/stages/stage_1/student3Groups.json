@@ -1,0 +1,136 @@
+{
+  "studentGroups": [
+      {
+        "semester": 1,
+        "section": "A",
+        "studentCount": 60,
+        "studentGroupId": "MCA_SEM1_A",
+        "compulsorySubjects": [
+          "25MCA11",
+          "25MCA12",
+          "25MCA13",
+          "25MCA14",
+          "25MCA15",
+          "25MCA16",
+          "25MCA17"
+        ]
+      },
+      {
+        "semester": 1,
+        "section": "B",
+        "studentCount": 60,
+        "studentGroupId": "MCA_SEM1_B",
+        "compulsorySubjects": [
+          "25MCA11",
+          "25MCA12",
+          "25MCA13",
+          "25MCA14",
+          "25MCA15",
+          "25MCA16",
+          "25MCA17"
+        ]
+      },
+      {
+        "semester": 3,
+        "section": "A",
+        "studentCount": 60,
+        "studentGroupId": "MCA_SEM3_A",
+        "compulsorySubjects": [
+          "24MCA31",
+          "24MCA32",
+          "24MCAP1"
+        ]
+      },
+      {
+        "semester": 3,
+        "section": "B",
+        "studentCount": 60,
+        "studentGroupId": "MCA_SEM3_B",
+        "compulsorySubjects": [
+          "24MCA31",
+          "24MCA32",
+          "24MCAP1"
+        ]
+      }
+    ],
+    "electiveSubjectGroups": [
+      {
+        "groupId": "ELEC_CAT_AD",
+        "groupName": "Advanced Development Electives",
+        "description": "Elective classes for these subjects can run in parallel for different sections (sub-groups).",
+        "subjectCodes": [
+          "24MCAAD1",
+          "24MCAAD4",
+          "24MCAAD5"
+        ]
+      },
+      {
+        "groupId": "ELEC_CAT_SS",
+        "groupName": "Systems and Security Electives",
+        "description": "Elective classes for these subjects are for a mixed group of students and cannot run in parallel with compulsory subjects.",
+        "subjectCodes": [
+          "24MCASS2",
+          "24MCASS3",
+          "24MCASS5"
+        ]
+      }
+    ],
+    "electiveStudentGroups": [
+      {
+        "studentGroupId": "ELEC_AD_A1",
+        "parentGroupId": "ELEC_CAT_AD",
+        "studentCount": 30,
+        "sections": ["A"],
+        "description": "Sub-group for Advanced Development, composed of students ONLY from Section A.",
+        "sourceSections": [
+          "MCA_SEM3_A"
+        ]
+      },
+      {
+        "studentGroupId": "ELEC_AD_B1",
+        "parentGroupId": "ELEC_CAT_AD",
+        "studentCount": 30,
+        "sections": ["B"],
+        "description": "Sub-group for Advanced Development, composed of students ONLY from Section B.",
+        "sourceSections": [
+          "MCA_SEM3_B"
+        ]
+      },
+      {
+        "studentGroupId": "ELEC_SS_G1",
+        "parentGroupId": "ELEC_CAT_SS",
+        "studentCount": 60,
+        "sections": ["A", "B"],
+        "description": "Sub-group for Systems & Security, composed of a MIX of students from BOTH Section A and B.",
+        "sourceSections": [
+          "MCA_SEM3_A",
+          "MCA_SEM3_B"
+        ]
+      }
+    ],
+    "groupHierarchy": {
+      "MCA_SEM3_A": {
+        "children": ["ELEC_AD_A1", "ELEC_SS_G1"],
+        "description": "Section A parent group contains students who are subset of AD_A1 and SS_G1"
+      },
+      "MCA_SEM3_B": {
+        "children": ["ELEC_AD_B1", "ELEC_SS_G1"],
+        "description": "Section B parent group contains students who are subset of AD_B1 and SS_G1"
+      },
+      "ELEC_AD_A1": {
+        "children": [],
+        "parent": "MCA_SEM3_A",
+        "description": "Subset of Section A students taking AD electives"
+      },
+      "ELEC_AD_B1": {
+        "children": [],
+        "parent": "MCA_SEM3_B",
+        "description": "Subset of Section B students taking AD electives"
+      },
+      "ELEC_SS_G1": {
+        "children": [],
+        "parents": ["MCA_SEM3_A", "MCA_SEM3_B"],
+        "description": "Mixed group containing students from both Section A and B"
+      }
+    }
+}
