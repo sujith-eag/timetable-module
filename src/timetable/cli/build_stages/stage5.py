@@ -15,7 +15,11 @@ def build_stage5(data_path: Path, validate: bool = False, verbose: bool = False)
     Build Stage 5 data from Stage 4 inputs.
 
     Generates:
-    - ai_solved_schedule.json (AI-generated schedule template)
+    - ai_solved_schedule.json (AI-optimized conflict-free schedule)
+    - scheduleTemplate.json (Phase 1 template format)
+
+    The AI scheduler runs first to generate an optimized schedule,
+    then the template generator creates the Phase 1 format from Stage 4 data.
 
     Args:
         data_path: Path to the data directory
@@ -42,7 +46,8 @@ def build_stage5(data_path: Path, validate: bool = False, verbose: bool = False)
         return results
 
     build_scripts = [
-        ("generate_schedule_template.py", "Generating AI schedule template"),
+        ("generate_schedule_template.py", "Generating schedule template (Phase 1 format)"),
+        ("schedule.py", "AI-optimized schedule generation"),
     ]
 
     if validate:
