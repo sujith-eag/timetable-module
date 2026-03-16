@@ -34,9 +34,17 @@ class SchedulingInputViewer:
         print()
         
         meta = self.data['metadata']
+        active_semesters = meta.get('activeSemesters', [1, 3])
+        
         print(f"📊 Total Assignments: {meta['totalAssignments']}")
-        print(f"   • Semester 1: {meta['semester1Assignments']}")
-        print(f"   • Semester 3: {meta['semester3Assignments']}")
+        print(f"   Active Semesters: {active_semesters}")
+        
+        # Display assignment counts for active semesters dynamically
+        for sem in active_semesters:
+            sem_key = f'semester{sem}Assignments'
+            sem_count = meta.get(sem_key)
+            if sem_count is not None:
+                print(f"   • Semester {sem}: {sem_count}")
         print()
         
         print(f"🕐 Time Slots: {meta['totalTimeSlots']}")
@@ -232,12 +240,15 @@ class SchedulingInputViewer:
 
     def show_help(self):
         """Show help information"""
+        active_semesters = self.data['metadata'].get('activeSemesters', [1, 3])
+        sem_filters = ', '.join([f'sem{s}' for s in active_semesters])
+        
         print("Usage: python3 view_scheduling_input.py [--data-dir DIR] <command> [args]")
         print()
         print("Commands:")
         print("  summary                    Show overall summary (default)")
         print("  assignments [filter]       List all assignments")
-        print("                             Filters: sem1, sem3, theory, practical, tutorial")
+        print(f"                             Filters: {sem_filters}, theory, practical, tutorial")
         print("  assignment <id>            Show details for specific assignment")
         print("  slots                      Show all time slots by day")
         print("  combinations               Show valid slot combinations")

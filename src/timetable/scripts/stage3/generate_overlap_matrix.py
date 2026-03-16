@@ -132,41 +132,60 @@ class OverlapMatrixGenerator:
         if group1 in children_of_2:
             return True
         
-        # Check if they have the same parent (same section, same elective category)
+        # Check if they have the same single parent (same section, same elective category)
         parent_of_1 = self._get_parent(group1)
         parent_of_2 = self._get_parent(group2)
         if parent_of_1 and parent_of_2 and parent_of_1 == parent_of_2:
-            # Same parent AND same elective category means overlap
-            # (but we already checked different categories above)
+            # Same single parent means overlap
             return True
         
         # Check if either group is a mixed group (has multiple parents)
         parents_of_1 = self._get_parents(group1)
         parents_of_2 = self._get_parents(group2)
         
-        # If group1 is mixed (SS) and group2 is any of its parents
+        # If both groups have multiple parents (mixed groups)
+        if len(parents_of_1) > 1 and len(parents_of_2) > 1:
+            # Check if they have the same set of parents (this would indicate they're the same group)
+            if set(parents_of_1) == set(parents_of_2):
+                # Same parents - they could share students unless they're different elective categories
+                # Check if they're different elective groups (same semester, different elective)
+                # If they're siblings in the elective hierarchy, they don't share
+                # This is handled by returning False - they partition the same parent set
+                return False
+            # Different parent sets = different groups = don't share
+            return False
+        
+        # If only group1 is mixed and group2 is a child of any of group1's parents
         if len(parents_of_1) > 1:
             if group2 in parents_of_1:
                 return True
             # Check if group2 is a child of any of group1's parents
-            # BUT only if they're from the SAME elective category or group2 is not an elective
             for parent in parents_of_1:
                 if group2 in self._get_children(parent):
-                    # group2 is a sibling - check if same elective category
-                    if not cat2 or cat1 == cat2:
+                    # group2 is a sibling of group1 - they share the parent but may partition students
+                    # If they're both electives, they don't share (they partition the parent)
+                    if not (cat1 and cat2) and not cat2:
+                        # Not electives or cat2 is None: return True (sharing)
                         return True
+                    # Both are electives: they partition, so don't share
+                    return False
+            return False
         
-        # If group2 is mixed (SS) and group1 is any of its parents
+        # If only group2 is mixed and group1 is a child of any of group2's parents
         if len(parents_of_2) > 1:
             if group1 in parents_of_2:
                 return True
             # Check if group1 is a child of any of group2's parents
-            # BUT only if they're from the SAME elective category or group1 is not an elective
             for parent in parents_of_2:
                 if group1 in self._get_children(parent):
-                    # group1 is a sibling - check if same elective category
-                    if not cat1 or cat1 == cat2:
+                    # group1 is a sibling of group2 - they share the parent but may partition students
+                    # If they're both electives, they don't share (they partition the parent)
+                    if not (cat1 and cat2) and not cat1:
+                        # Not electives or cat1 is None: return True (sharing)
                         return True
+                    # Both are electives: they partition, so don't share
+                    return False
+            return False
         
         return False
     
@@ -185,24 +204,46 @@ class OverlapMatrixGenerator:
         if self._shares_students_with(group1, group2):
             return False
         
-        # Check specific cases for different sections
-        # MCA_SEM3_A can run parallel with MCA_SEM3_B
-        if (group1, group2) in [("MCA_SEM3_A", "MCA_SEM3_B"), ("MCA_SEM3_B", "MCA_SEM3_A")]:
+        # If they don't share students, they CAN run in parallel
+        # unless there are specific constraints
+        
+        # Extract semester numbers from group IDs dynamically
+        # Pattern: MCA_SEM{N}_{SECTION} or MCA_SEM{N}_ALL
+        def extract_sem_and_section(group_id: str):
+            """Extract semester number and section from group ID."""
+            # Pattern: MCA_SEM2_A -> (2, 'A')
+            parts = group_id.split('_')
+            if len(parts) >= 3 and parts[1].startswith('SEM'):
+                try:
+                    sem = int(parts[1][3:])  # Extract number from "SEM2"
+                    section = '_'.join(parts[2:])  # Handle ALL or letters
+                    return sem, section
+                except ValueError:
+                    return None, None
+            return None, None
+        
+        sem1, sec1 = extract_sem_and_section(group1)
+        sem2, sec2 = extract_sem_and_section(group2)
+        
+        # Core groups from same semester but different sections can run parallel
+        # (e.g., MCA_SEM2_A can run parallel with MCA_SEM2_B)
+        if (sem1 is not None and sem2 is not None and 
+            sem1 == sem2 and  # Same semester
+            sec1 != sec2 and  # Different sections
+            sec1 not in ['ALL'] and sec2 not in ['ALL']):  # Not global sections
             return True
         
-        # ELEC_AD_A1 can run parallel with ELEC_AD_B1 (different sections, same category)
-        if (group1, group2) in [("ELEC_AD_A1", "ELEC_AD_B1"), ("ELEC_AD_B1", "ELEC_AD_A1")]:
-            return True
-        
-        # AD and SS are disjoint categories - can run in parallel
+        # AD and SS elective categories are disjoint sets - can run in parallel
         cat1 = self._get_elective_category(group1)
         cat2 = self._get_elective_category(group2)
         if cat1 and cat2 and cat1 != cat2:
             # Different elective categories = can run parallel
             return True
         
-        # Same logic for Sem 1
-        if (group1, group2) in [("MCA_SEM1_A", "MCA_SEM1_B"), ("MCA_SEM1_B", "MCA_SEM1_A")]:
+        # Elective groups that don't share students can run parallel
+        # (e.g., ELEC_AI_G1 and ELEC_CS_G1 partition students, so they can run in parallel)
+        if 'ELEC' in group1 and 'ELEC' in group2:
+            # Both are elective groups and don't share students (checked above)
             return True
         
         return False

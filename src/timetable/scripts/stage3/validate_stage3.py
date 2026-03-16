@@ -16,6 +16,8 @@ import json
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
 
+from timetable.core.semester_detector import detect_active_semesters
+
 
 class Stage3Validator:
     """Validates Stage 3 teaching assignments."""
@@ -208,6 +210,35 @@ class Stage3Validator:
         print("\n" + "=" * 80)
 
 
+def get_active_semesters(base_path: Path) -> List[int]:
+    """Get active semesters from DataLoader (single source of truth).
+    
+    Uses DataLoader to detect active semesters, which reads from
+    studentGroups.json as the system of record.
+    
+    Args:
+        base_path: Base data directory path
+        
+    Returns:
+        List of active semester numbers found
+    """
+    try:
+        from timetable.core.loader import DataLoader
+        loader = DataLoader(base_path)
+        # DataLoader auto-detects from studentGroups.json on init
+        return list(loader.active_semesters)
+    except Exception:
+        # Fallback to file-based detection if DataLoader fails
+        stage_3_path = base_path / "stage_3"
+        if stage_3_path.exists():
+            active_semesters = []
+            for i in range(1, 5):  # Semesters 1-4
+                if (stage_3_path / f"teachingAssignments_sem{i}.json").exists():
+                    active_semesters.append(i)
+            return sorted(active_semesters) if active_semesters else [1, 3]
+        return [1, 3]  # Fallback default
+
+
 def main(data_dir=None):
     """Main validation function."""
     import argparse
@@ -227,16 +258,20 @@ def main(data_dir=None):
     # Determine base path
     base_path = Path(data_dir)
     
+    # Get active semesters dynamically
+    active_semesters = get_active_semesters(base_path)
+    print(f"Active semesters: {active_semesters}")
+    print()
+    
     validator = Stage3Validator(base_path)
     
-    # Validate both semester files
-    print("\n1. Validating Semester 1 assignments...")
-    sem1_valid = validator.validate_file("teachingAssignments_sem1.json")
-    print(f"   {'✓' if sem1_valid else '✗'} Semester 1 validation {'passed' if sem1_valid else 'failed'}")
-    
-    print("\n2. Validating Semester 3 assignments...")
-    sem3_valid = validator.validate_file("teachingAssignments_sem3.json")
-    print(f"   {'✓' if sem3_valid else '✗'} Semester 3 validation {'passed' if sem3_valid else 'failed'}")
+    # Validate all active semester files
+    results = {}
+    for i, semester in enumerate(active_semesters, 1):
+        filename = f"teachingAssignments_sem{semester}.json"
+        print(f"{i}. Validating Semester {semester} assignments...")
+        results[semester] = validator.validate_file(filename)
+        print(f"   {'✓' if results[semester] else '✗'} Semester {semester} validation {'passed' if results[semester] else 'failed'}")
     
     # Print report
     validator.print_report()

@@ -17,11 +17,32 @@ class SchedulingMetadata(BaseModel):
     generator: str
     version: str
     total_assignments: int = Field(alias="totalAssignments")
-    semester1_assignments: int = Field(alias="semester1Assignments")
-    semester3_assignments: int = Field(alias="semester3Assignments")
+    active_semesters: List[int] = Field(default=[1, 3], alias="activeSemesters")
+    # Support all semester pairs: [1,3] or [2,4]
+    semester1_assignments: Optional[int] = Field(default=None, alias="semester1Assignments")
+    semester2_assignments: Optional[int] = Field(default=None, alias="semester2Assignments")
+    semester3_assignments: Optional[int] = Field(default=None, alias="semester3Assignments")
+    semester4_assignments: Optional[int] = Field(default=None, alias="semester4Assignments")
     total_time_slots: int = Field(alias="totalTimeSlots")
     total_rooms: int = Field(alias="totalRooms")
     description: str
+
+    def get_assignments_for_semester(self, semester: int) -> Optional[int]:
+        """Dynamically get assignment count for any semester.
+        
+        Args:
+            semester: Semester number (1, 2, 3, or 4)
+            
+        Returns:
+            Assignment count for the semester, or None if not available
+        """
+        assignments_map = {
+            1: self.semester1_assignments,
+            2: self.semester2_assignments,
+            3: self.semester3_assignments,
+            4: self.semester4_assignments,
+        }
+        return assignments_map.get(semester)
 
 
 class SchedulingConfiguration(BaseModel):
@@ -111,7 +132,7 @@ class AssignmentConstraints(BaseModel):
     student_group_conflicts: List[str] = Field(alias="studentGroupConflicts")
     faculty_conflicts: List[str] = Field(alias="facultyConflicts")
     fixed_day: Optional[str] = Field(alias="fixedDay")
-    fixed_slot: Optional[str] = Field(alias="fixedSlot")
+    fixed_slot: Optional[Union[str, List[str]]] = Field(alias="fixedSlot")
     must_be_in_room: Optional[str] = Field(alias="mustBeInRoom")
 
 
@@ -137,6 +158,7 @@ class SchedulingAssignment(BaseModel):
     valid_slot_types: List[str] = Field(alias="validSlotTypes")
     priority: str
     is_elective: bool = Field(alias="isElective")
+    is_diff_subject: bool = Field(default=False, alias="isDiffSubject")
     constraints: AssignmentConstraints
 
     @field_validator('component_type')

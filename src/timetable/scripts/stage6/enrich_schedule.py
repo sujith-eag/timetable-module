@@ -54,19 +54,20 @@ class ScheduleEnricher:
         print()
     
     def load_schedule(self, schedule_file: Path) -> List[Dict]:
-        """Load Stage 5 schedule"""
+        """Load schedule template from Stage 5 (Phase 1 flat format)"""
         print(f"📂 Loading schedule from {schedule_file.name}...")
         
         with open(schedule_file, 'r') as f:
             data = json.load(f)
         
-        schedule = data.get('schedule', data)  # Handle both formats
+        # Extract schedule array from template
+        schedule = data.get('schedule', data)
         
         print(f"   ✓ Loaded {len(schedule)} sessions")
         print()
         
         return schedule
-    
+
     def get_time_info(self, day: str, slot_id: str) -> Dict:
         """Get time information for a day/slot combination"""
         # Handle both single and double slots
@@ -335,10 +336,24 @@ def main():
     try:
         enricher = ScheduleEnricher(args.data_dir)
         
-        # Automatically find the schedule file in stage5
-        schedule_file = enricher.stage5_dir / "ai_solved_schedule.json"
-        if not schedule_file.exists():
-            print(f"❌ Error: Schedule file not found: {schedule_file}")
+        # Try to find schedule file (support both old and new formats)
+        schedule_file = None
+        
+        # First, try ai_solved_schedule.json (from AI scheduler)
+        candidate = enricher.stage5_dir / "ai_solved_schedule.json"
+        if candidate.exists():
+            schedule_file = candidate
+        else:
+            # Fall back to scheduleTemplate.json (Phase 2 format)
+            candidate = enricher.stage5_dir / "scheduleTemplate.json"
+            if candidate.exists():
+                schedule_file = candidate
+        
+        if not schedule_file:
+            print(f"❌ Error: No schedule found in {enricher.stage5_dir}")
+            print("   Expected either:")
+            print("   - ai_solved_schedule.json (from AI scheduler)")
+            print("   - scheduleTemplate.json (Phase 2 format)")
             return 1
         
         print("=" * 70)

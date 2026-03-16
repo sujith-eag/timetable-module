@@ -35,6 +35,7 @@ Usage:
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, TypeVar, Union
 
@@ -66,7 +67,7 @@ from timetable.models.stage3 import (
     TeachingAssignmentsFile,
 )
 from timetable.models.stage4 import SchedulingInput
-from timetable.models.stage5 import AISchedule
+from timetable.models.stage5 import AISchedule, ScheduleMetadata
 from timetable.models.stage6 import (
     EnrichedTimetable,
 )
@@ -659,20 +660,49 @@ class DataLoader:
     def load_ai_schedule(self) -> AISchedule:
         """
         Load Stage 5 AI-generated schedule data.
+        
+        Tries to load ai_solved_schedule.json first (from AI solver).
+        Falls back to scheduleTemplate.json (Phase 1 template format) if available.
+        
+        Note: scheduleTemplate.json may contain unfixed sessions (null day/slotId)
+        if it hasn't been filled by AI scheduler yet.
 
         Returns:
             AISchedule: Validated AI-generated schedule data
 
         Raises:
-            DataLoadError: If file cannot be read
+            DataLoadError: If neither file can be read
             ValidationError: If data is invalid
         """
-        filepath = self.stage_dir(5) / "ai_solved_schedule.json"
-        ai_schedule = load_and_validate(filepath, AISchedule)
-        logger.info(
-            f"Loaded AI schedule: {ai_schedule.metadata.total_sessions} sessions scheduled"
+        stage5_dir = self.stage_dir(5)
+        
+        # Try ai_solved_schedule.json first (from AI scheduler)
+        filepath = stage5_dir / "ai_solved_schedule.json"
+        if filepath.exists():
+            ai_schedule = load_and_validate(filepath, AISchedule)
+            logger.info(
+                f"Loaded AI schedule: {ai_schedule.metadata.total_sessions} sessions scheduled"
+            )
+            return ai_schedule
+        
+        # Fall back to scheduleTemplate.json (Phase 1 format)
+        # This is useful for testing/dev when you want to load unfilled template
+        filepath = stage5_dir / "scheduleTemplate.json"
+        if filepath.exists():
+            logger.debug("ai_solved_schedule.json not found, loading Phase 1 template")
+            ai_schedule = load_and_validate(filepath, AISchedule)
+            logger.info(
+                f"Loaded Phase 1 template: {ai_schedule.metadata.total_sessions} sessions "
+                f"(may include unfixed sessions with null day/slotId)"
+            )
+            return ai_schedule
+        
+        # Neither file found
+        ai_file = stage5_dir / "ai_solved_schedule.json"
+        template_file = stage5_dir / "scheduleTemplate.json"
+        raise DataLoadError(
+            f"Stage 5 data not found: Expected either {ai_file} or {template_file}"
         )
-        return ai_schedule
 
     def load_enriched_timetable(self) -> EnrichedTimetable:
         """

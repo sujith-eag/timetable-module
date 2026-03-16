@@ -363,14 +363,25 @@ class StatisticsFile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     metadata: StatisticsMetadata
-    semester1: SemesterStats
-    semester3: SemesterStats
+    semester1: Optional[SemesterStats] = None
+    semester2: Optional[SemesterStats] = None
+    semester3: Optional[SemesterStats] = None
+    semester4: Optional[SemesterStats] = None
     combined: CombinedStats
 
     def get_semester_stats(self, semester: int) -> Optional[SemesterStats]:
-        """Get statistics for a specific semester."""
-        if semester == 1:
-            return self.semester1
-        elif semester == 3:
-            return self.semester3
-        return None
+        """Dynamically get statistics for any semester.
+        
+        Args:
+            semester: Semester number (1, 2, 3, or 4)
+            
+        Returns:
+            SemesterStats for the semester, or None if not available
+        """
+        stats_map = {
+            1: self.semester1,
+            2: self.semester2,
+            3: self.semester3,
+            4: self.semester4,
+        }
+        return stats_map.get(semester)

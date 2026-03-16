@@ -114,6 +114,73 @@ class FacultyFullBuilder:
         
         return faculty_full
     
+    def _add_diff_assignments(self, faculty_full_list: List[Dict[str, Any]]) -> None:
+        """
+        Add diff subjects with assignedTo="all_faculty" as a single ALL_FACULTY entry.
+        
+        Diff subjects are NOT expanded to individual faculty. Instead, they are
+        collected into a special "ALL_FACULTY" entry that represents the entire
+        student cohort at once. This approach:
+        - Blocks time slots with fixedTiming constraints
+        - Keeps assignments minimal (one per diff subject, not per faculty)
+        - Allows Stage 3 to mark them as isDiffSubject=true
+        - Allows Stage 4-6 to skip scheduling and place at fixed slots directly
+        
+        Args:
+            faculty_full_list: List to append ALL_FACULTY entry to (modified in-place)
+        """
+        # Get all diff subjects from subjects_full
+        diff_subjects_all_faculty = [
+            s for s in self.subjects_full
+            if s.get('assignedTo') == 'all_faculty' and s.get('type') == 'diff'
+        ]
+        
+        if not diff_subjects_all_faculty:
+            logger.debug("No diff subjects with assignedTo='all_faculty' found")
+            return
+        
+        logger.info(f"Processing {len(diff_subjects_all_faculty)} diff subjects with assignedTo='all_faculty'")
+        
+        # Create assignments for all diff subjects
+        all_faculty_assignments = []
+        for diff_subject in diff_subjects_all_faculty:
+            subject_code = diff_subject.get('subjectCode')
+            sections = diff_subject.get('sections', ['ALL'])
+            
+            logger.debug(f"Creating assignment for diff subject: {subject_code}")
+            
+            assignment = self.calculator._create_assignment(
+                subject_code=subject_code,
+                sections=sections,
+                student_groups_data=self.student_groups_data
+            )
+            
+            if assignment:
+                all_faculty_assignments.append(assignment)
+                logger.debug(f"  ✓ Assignment created for {subject_code}")
+            else:
+                logger.warning(f"  ✗ Failed to create assignment for {subject_code}")
+        
+        # Create ALL_FACULTY entry if there are diff assignments
+        if all_faculty_assignments:
+            workload_stats = self.calculator.calculate_workload_stats(all_faculty_assignments)
+            
+            all_faculty_entry = {
+                'facultyId': 'ALL_FACULTY',
+                'name': 'All Faculty - Fixed & Special Assignments',
+                'designation': 'Class-level Activities',
+                'department': 'MCA',
+                'primaryAssignments': all_faculty_assignments,
+                'supportingAssignments': [],
+                'workloadStats': workload_stats
+            }
+            
+            faculty_full_list.append(all_faculty_entry)
+            logger.info(
+                f"Created ALL_FACULTY entry with {len(all_faculty_assignments)} diff assignments "
+                f"({workload_stats['totalWeeklyHours']:.1f}h/week)"
+            )
+    
     def build_all_faculty(self) -> List[Dict[str, Any]]:
         """
         Build all faculty with complete data
@@ -127,6 +194,9 @@ class FacultyFullBuilder:
         for faculty in faculty_list:
             faculty_full = self.build_faculty_full(faculty)
             faculty_full_list.append(faculty_full)
+        
+        # Add diff subjects with assignedTo="all_faculty" as single ALL_FACULTY entry
+        self._add_diff_assignments(faculty_full_list)
         
         return faculty_full_list
     

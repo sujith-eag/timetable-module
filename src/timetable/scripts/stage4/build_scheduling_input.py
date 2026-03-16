@@ -39,20 +39,47 @@ class SchedulingInputBuilder:
         }
     
     def load_stage3_data(self) -> Dict[str, Any]:
-        """Load Stage 3 teaching assignments"""
+        """Load Stage 3 teaching assignments for all active semesters"""
         print("📂 Loading Stage 3 teaching assignments...")
         
-        sem1 = self.load_json(self.stage3_dir / "teachingAssignments_sem1.json")
-        sem3 = self.load_json(self.stage3_dir / "teachingAssignments_sem3.json")
-        overlap = self.load_json(self.stage3_dir / "studentGroupOverlapConstraints.json")
+        # Detect active semesters from student groups
+        student_groups_path = self.stage1_dir / "studentGroups.json"
+        student_groups_data = self.load_json(student_groups_path)
         
-        print(f"   ✓ Loaded Semester 1: {len(sem1['assignments'])} assignments")
-        print(f"   ✓ Loaded Semester 3: {len(sem3['assignments'])} assignments")
+        # Extract unique semesters from student groups
+        semesters = set()
+        for sg in student_groups_data.get("studentGroups", []):
+            if "semester" in sg:
+                semesters.add(sg["semester"])
+        
+        if not semesters:
+            # Fallback to default if no semester info found
+            semesters = {1, 3}
+        
+        semesters = sorted(list(semesters))
+        
+        # Load assignments for each active semester
+        sem_assignments = {}
+        total_assignments = 0
+        
+        for sem in semesters:
+            assignment_file = self.stage3_dir / f"teachingAssignments_sem{sem}.json"
+            try:
+                sem_data = self.load_json(assignment_file)
+                sem_assignments[sem] = sem_data.get("assignments", [])
+                total_assignments += len(sem_assignments[sem])
+                print(f"   ✓ Loaded Semester {sem}: {len(sem_assignments[sem])} assignments")
+            except FileNotFoundError:
+                print(f"   ⚠ Semester {sem}: No assignments found (will be empty)")
+                sem_assignments[sem] = []
+        
+        # Load overlap constraints
+        overlap = self.load_json(self.stage3_dir / "studentGroupOverlapConstraints.json")
         print("   ✓ Loaded overlap constraints")
         
         return {
-            "sem1_assignments": sem1["assignments"],
-            "sem3_assignments": sem3["assignments"],
+            "sem_assignments": sem_assignments,  # {sem: [assignments]}
+            "semesters": semesters,  # List of active semesters
             "overlap_constraints": overlap
         }
     
@@ -180,6 +207,7 @@ class SchedulingInputBuilder:
                 "validSlotTypes": valid_slot_types,
                 "priority": a["priority"],
                 "isElective": a["isElective"],
+                "isDiffSubject": a.get("isDiffSubject", False),
                 "constraints": a["constraints"]
             })
         
@@ -198,11 +226,14 @@ class SchedulingInputBuilder:
         
         print()
         
-        # Combine all assignments
-        all_assignments = (
-            stage3["sem1_assignments"] + 
-            stage3["sem3_assignments"]
-        )
+        # Combine all assignments from all semesters
+        all_assignments = []
+        sem_assignments_map = {}  # For metadata
+        
+        for sem in stage3["semesters"]:
+            sem_assignments = stage3["sem_assignments"][sem]
+            all_assignments.extend(sem_assignments)
+            sem_assignments_map[f"semester{sem}Assignments"] = len(sem_assignments)
         
         # Build components
         time_slots = self.build_time_slots(stage1["config"])
@@ -217,19 +248,24 @@ class SchedulingInputBuilder:
         
         print()
         
+        # Build metadata with dynamic semester information
+        metadata = {
+            "generatedAt": datetime.now().isoformat(),
+            "generator": "build_scheduling_input.py",
+            "version": "1.0",
+            "totalAssignments": len(transformed_assignments),
+            "activeSemesters": stage3["semesters"],
+            "totalTimeSlots": len(time_slots),
+            "totalRooms": len(rooms),
+            "description": "Self-contained scheduling input for AI-based timetable generation"
+        }
+        
+        # Add dynamic semester assignment counts
+        metadata.update(sem_assignments_map)
+        
         # Build final structure
         scheduling_input = {
-            "metadata": {
-                "generatedAt": datetime.now().isoformat(),
-                "generator": "build_scheduling_input.py",
-                "version": "1.0",
-                "totalAssignments": len(transformed_assignments),
-                "semester1Assignments": len(stage3["sem1_assignments"]),
-                "semester3Assignments": len(stage3["sem3_assignments"]),
-                "totalTimeSlots": len(time_slots),
-                "totalRooms": len(rooms),
-                "description": "Self-contained scheduling input for AI-based timetable generation"
-            },
+            "metadata": metadata,
             "configuration": {
                 "weekdays": stage1["config"]["weekdays"],
                 "dayStart": stage1["config"]["dayStart"],
@@ -271,8 +307,13 @@ class SchedulingInputBuilder:
         print()
         
         print(f"📊 Assignments: {data['metadata']['totalAssignments']}")
-        print(f"   • Semester 1: {data['metadata']['semester1Assignments']}")
-        print(f"   • Semester 3: {data['metadata']['semester3Assignments']}")
+        print(f"   Active semesters: {data['metadata']['activeSemesters']}")
+        
+        # Print dynamic semester assignment counts
+        for sem in data['metadata']['activeSemesters']:
+            key = f'semester{sem}Assignments'
+            if key in data['metadata']:
+                print(f"   • Semester {sem}: {data['metadata'][key]}")
         print()
         
         print(f"🕐 Time Slots: {data['metadata']['totalTimeSlots']}")
