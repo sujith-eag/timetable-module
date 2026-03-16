@@ -14,8 +14,8 @@
       "assignedTo": "all_faculty",
       "sections": ["A", "B"],
       "fixedTiming": {
-        "day": "Mon",
-        "slots": ["S7"],
+        "day": "Fri",
+        "slots": ["S6"],
         "duration": 55
       },
       "components": [

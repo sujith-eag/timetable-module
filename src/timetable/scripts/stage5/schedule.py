@@ -171,8 +171,53 @@ class ScheduleOptimizer:
             for group_id in group_ids:
                 self.group_bookings[(group_id, day, slot)] = assignment_id
     
+    def count_group_classes_on_day(self, group_ids: List[str], day: str) -> int:
+        """Count how many classes a group already has on a given day."""
+        count = 0
+        for group_id in group_ids:
+            # Count unique slots used by this group on this day
+            for (gid, d, slot), asgn_id in self.group_bookings.items():
+                if gid == group_id and d == day:
+                    count += 1
+        return count
+    
+    def count_faculty_classes_on_day(self, faculty_id: str, day: str) -> int:
+        """Count how many classes faculty has on a given day."""
+        count = 0
+        for (fid, d, slot), asgn_id in self.faculty_bookings.items():
+            if fid == faculty_id and d == day:
+                count += 1
+        return count
+    
+    def get_days_sorted_by_load(self, faculty_id: str, group_ids: List[str]) -> List[str]:
+        """Get days sorted by total load with stronger preference for lower-load days.
+        
+        Weighting strategy:
+        - Group load: quadratically penalize high loads (prefer spreading)
+        - Faculty load: linear penality (less important than student spread)
+        """
+        day_loads = []
+        for day in self.weekdays:
+            group_load = sum(self.count_group_classes_on_day(group_ids, day) for gid in group_ids)
+            faculty_load = self.count_faculty_classes_on_day(faculty_id, day)
+            
+            # Quadratic penalty for group load (0→0, 1→4, 2→16, 3→36, etc)
+            # This strongly prefers zero-load days
+            # Linear penalty for faculty load
+            total_load = (group_load ** 2) * 4 + faculty_load * 2
+            day_loads.append((total_load, day))
+        
+        # Sort by load (ascending) - strongly prefer days with no existing classes
+        day_loads.sort(key=lambda x: x[0])
+        return [day for _, day in day_loads]
+    
     def schedule_session(self, assignment: Dict, session_num: int) -> Tuple[bool, Optional[Dict]]:
-        """Schedule a single session for an assignment. Returns (success, scheduled_session)."""
+        """Schedule a single session for an assignment. Returns (success, scheduled_session).
+        
+        Respects fixed constraints from Stage 4:
+        - If fixedDay is set, only tries that day
+        - If fixedSlot is set, only tries those slots
+        """
         assignment_id = assignment['assignmentId']
         duration = assignment['sessionDuration']
         room_type = assignment['requiresRoomType']
@@ -181,9 +226,33 @@ class ScheduleOptimizer:
         preferred_rooms = assignment.get('preferredRooms', [])
         is_diff_subject = assignment.get('isDiffSubject', False)
         
+        # Check for fixed constraints from Stage 4
+        constraints = assignment.get('constraints', {})
+        fixed_day = constraints.get('fixedDay')
+        fixed_slot = constraints.get('fixedSlot')
+        
+        # Determine which days to try
+        if fixed_day:
+            # Fixed constraint: only try specified day
+            days_to_try = [fixed_day]
+        else:
+            # No fixed day: sort by load to spread classes
+            days_to_try = self.get_days_sorted_by_load(faculty_id, group_ids)
+        
         # Try to find a valid slot
-        for day in self.weekdays:
-            slots_combos = self.get_valid_slots_for_duration(duration, day)
+        for day in days_to_try:
+            if fixed_slot:
+                # Fixed constraint: only try specified slots
+                # Convert to proper format for slot_combo checking
+                if isinstance(fixed_slot, list):
+                    slot_combo = '+'.join(fixed_slot) if len(fixed_slot) > 1 else fixed_slot[0]
+                else:
+                    slot_combo = fixed_slot
+                slots_combos = [slot_combo]
+            else:
+                # No fixed slot: get all valid combinations for duration on this day
+                slots_combos = self.get_valid_slots_for_duration(duration, day)
+            
             if not slots_combos:
                 continue
             
@@ -226,22 +295,64 @@ class ScheduleOptimizer:
         return False, None
     
     def optimize_schedule(self) -> Tuple[List[Dict], List[Dict]]:
-        """Create optimized schedule using Stage 4 assignment and constraint data."""
+        """Create optimized schedule using Stage 4 assignment and constraint data.
+        
+        Priority order:
+        1. Assignments with FIXED constraints (must honor fixedDay/fixedSlot)
+        2. Diff subjects (special sessions that need careful placement)
+        3. Regular assignments (sorted by workload)
+        """
         scheduled = []
         unscheduled = []
         
-        # Sort by priority and isDiffSubject
-        sorted_assignments = sorted(
-            self.assignments,
-            key=lambda a: (
-                a.get('isDiffSubject', False) == False,  # isDiffSubject first
-                {'high': 0, 'normal': 1, 'low': 2}.get(a.get('priority', 'normal'), 1),
-                a['sessionDuration'] != 110,  # Labs before theory
-                -a['sessionsPerWeek']  # More sessions first
-            )
-        )
+        # Separate assignments into fixed and flexible
+        fixed_assignments = []
+        flexible_assignments = []
         
-        for assignment in sorted_assignments:
+        for assignment in self.assignments:
+            constraints = assignment.get('constraints', {})
+            if constraints.get('fixedDay') or constraints.get('fixedSlot'):
+                fixed_assignments.append(assignment)
+            else:
+                flexible_assignments.append(assignment)
+        
+        # Sort fixed assignments: by isDiffSubject and priority
+        fixed_assignments.sort(key=lambda a: (
+            a.get('isDiffSubject', False) == False,  # isDiffSubject first
+            {'high': 0, 'normal': 1, 'low': 2}.get(a.get('priority', 'normal'), 1),
+        ))
+        
+        # Sort flexible assignments
+        flexible_assignments.sort(key=lambda a: (
+            a.get('isDiffSubject', False) == False,  # isDiffSubject first
+            {'high': 0, 'normal': 1, 'low': 2}.get(a.get('priority', 'normal'), 1),
+            a['sessionDuration'] != 110,  # Labs before theory
+            -a['sessionsPerWeek']  # More sessions first
+        ))
+        
+        # Process fixed assignments first
+        print(f"\n[PRIORITY] Scheduling {len(fixed_assignments)} fixed assignments...")
+        for assignment in fixed_assignments:
+            sessions_needed = assignment['sessionsPerWeek']
+            
+            for session_num in range(1, sessions_needed + 1):
+                success, scheduled_session = self.schedule_session(assignment, session_num)
+                
+                if success:
+                    scheduled.append(scheduled_session)
+                else:
+                    unscheduled.append({
+                        'assignmentId': assignment['assignmentId'],
+                        'sessionNumber': session_num,
+                        'totalSessions': sessions_needed,
+                        'reason': f"Cannot honor fixed constraints: fixedDay={assignment.get('constraints', {}).get('fixedDay')}, fixedSlot={assignment.get('constraints', {}).get('fixedSlot')}",
+                        'faculty': assignment['facultyId'],
+                        'studentGroups': assignment['studentGroupIds']
+                    })
+        
+        # Then process flexible assignments
+        print(f"[FLEXIBLE] Scheduling {len(flexible_assignments)} flexible assignments...")
+        for assignment in flexible_assignments:
             sessions_needed = assignment['sessionsPerWeek']
             
             for session_num in range(1, sessions_needed + 1):
