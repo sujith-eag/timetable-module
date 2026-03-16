@@ -1,0 +1,81 @@
+{
+  "subjects": [
+      {
+        "subjectCode": "25MCA21",
+        "shortCode": "OOPJ",
+        "title": "Object Oriented Programming Using Java",
+        "creditPattern": [3, 0, 0],
+        "totalCredits": 3,
+        "department": "MCA",
+        "semester": 2,
+        "isElective": false,
+        "type": "core"
+      },
+      {
+        "subjectCode": "25MCA22",
+        "shortCode": "DAA",
+        "title": "Design and Analysis of Algorithms",
+        "creditPattern": [3, 0, 1],
+        "totalCredits": 4,
+        "department": "MCA",
+        "semester": 2,
+        "isElective": false,
+        "type": "core"
+      },
+      {
+        "subjectCode": "25MCA23",
+        "shortCode": "SE",
+        "title": "Software Engineering and Agile Methodologies",
+        "creditPattern": [3, 0, 0],
+        "totalCredits": 3,
+        "department": "MCA",
+        "semester": 2,
+        "isElective": false,
+        "type": "core"
+      },
+      {
+        "subjectCode": "25MCA24",
+        "shortCode": "CN",
+        "title": "Computer Networks",
+        "creditPattern": [3, 0, 1],
+        "totalCredits": 4,
+        "department": "MCA",
+        "semester": 2,
+        "isElective": false,
+        "type": "core"
+      },
+      {
+        "subjectCode": "25MCA25",
+        "shortCode": "RM",
+        "title": "Research Methodology",
+        "creditPattern": [2, 0, 0],
+        "totalCredits": 2,
+        "department": "MCA",
+        "semester": 2,
+        "isElective": false,
+        "type": "core"
+      },
+      {
+        "subjectCode": "25MCA26",
+        "shortCode": "FS",
+        "title": "Full Stack Development",
+        "creditPattern": [0, 1, 2],
+        "totalCredits": 3,
+        "department": "MCA",
+        "semester": 2,
+        "isElective": false,
+        "type": "core"
+      },
+      {
+        "subjectCode": "25MCA27",
+        "shortCode": "JavaLab",
+        "title": "Programming in Java",
+        "creditPattern": [0, 0, 1],
+        "totalCredits": 1,
+        "department": "MCA",
+        "semester": 2,
+        "isElective": false,
+        "type": "core"
+      }
+    ]
+}

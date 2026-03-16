@@ -33,8 +33,25 @@ def build_stage2(data_path: Path, validate: bool = True, verbose: bool = False) 
 
     results = []
 
-    # Check prerequisites
+    # Initialize loader and detect active semesters
     loader = DataLoader(data_path)
+    
+    # Log detected semesters
+    if loader.has_semester_detection():
+        active_semesters = loader.get_active_semesters()
+        results.append((
+            "Semester Detection",
+            True,
+            f"Active semesters detected: {active_semesters}"
+        ))
+    else:
+        results.append((
+            "Semester Detection",
+            False,
+            "Could not detect active semesters from studentGroups.json. Will load all available data."
+        ))
+
+    # Check prerequisites
     try:
         subjects = loader.load_subjects()
         faculty = loader.load_faculty()

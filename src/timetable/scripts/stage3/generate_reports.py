@@ -422,8 +422,6 @@ def main(data_dir=None):
     
     # Construct paths
     stage_3_dir = data_dir / "stage_3"
-    assignments_sem3 = stage_3_dir / "teachingAssignments_sem3.json"
-    assignments_sem1 = stage_3_dir / "teachingAssignments_sem1.json"
     reports_dir = stage_3_dir / "reports"
     
     print("Generating detailed reports for Stage 3...")
@@ -435,13 +433,40 @@ def main(data_dir=None):
     reports_dir.mkdir(exist_ok=True)
     print(f"\n📁 Reports directory: {reports_dir}")
     
-    # Load data
+    # Dynamically discover which assignment files exist
     print("\n📂 Loading teaching assignments...")
-    sem1_data = load_assignments(assignments_sem1)
-    sem3_data = load_assignments(assignments_sem3)
-    print(f"   ✓ Loaded {len(sem1_data['assignments']) + len(sem3_data['assignments'])} total assignments")
+    semester_data = {}
+    for sem in [1, 2, 3, 4]:
+        filepath = stage_3_dir / f"teachingAssignments_sem{sem}.json"
+        if filepath.exists():
+            try:
+                semester_data[sem] = load_assignments(filepath)
+                print(f"   ✓ Loaded Semester {sem}: {len(semester_data[sem]['assignments'])} assignments")
+            except Exception as e:
+                print(f"   ✗ Semester {sem}: Error loading file - {e}")
     
-    # Generate reports
+    if not semester_data:
+        print("\n❌ No assignment files found in stage_3/")
+        return 1
+    
+    total_assignments = sum(len(data['assignments']) for data in semester_data.values())
+    print(f"   ✓ Total: {total_assignments} assignments")
+    
+    # For backward compatibility with existing report generators, 
+    # use the available semesters (prefer lower numbers if available)
+    available_sems = sorted(semester_data.keys())
+    if len(available_sems) >= 2:
+        # Use first two semesters for detailed reports
+        sem_data_1 = semester_data[available_sems[0]]
+        sem_data_2 = semester_data[available_sems[1]]
+        active_sems = (available_sems[0], available_sems[1])
+    else:
+        # Single semester - duplicate the data for compatibility
+        sem_data_1 = semester_data[available_sems[0]]
+        sem_data_2 = semester_data[available_sems[0]]
+        active_sems = (available_sems[0], available_sems[0])
+    
+    # Generate reports with available data
     reports = {
         'summary.md': ('Executive Summary', generate_summary_report),
         'faculty_assignments.md': ('Faculty Assignments', generate_faculty_report),
@@ -453,15 +478,18 @@ def main(data_dir=None):
     generated = []
     for filename, (title, generator_func) in reports.items():
         print(f"\n📝 Generating {title}...")
-        content = generator_func(sem1_data, sem3_data)
-        
-        filepath = reports_dir / filename
-        with open(filepath, 'w') as f:
-            f.write(content)
-        
-        file_size = filepath.stat().st_size
-        print(f"   ✓ Saved to {filename} ({file_size:,} bytes)")
-        generated.append(filename)
+        try:
+            content = generator_func(sem_data_1, sem_data_2)
+            
+            filepath = reports_dir / filename
+            with open(filepath, 'w') as f:
+                f.write(content)
+            
+            file_size = filepath.stat().st_size
+            print(f"   ✓ Saved to {filename} ({file_size:,} bytes)")
+            generated.append(filename)
+        except Exception as e:
+            print(f"   ✗ Error generating {filename}: {e}")
     
     print("\n" + "=" * 70)
     print("✅ Report generation complete!")

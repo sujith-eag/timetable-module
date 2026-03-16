@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class SubjectComponent(BaseModel):
     """A single component of a subject (theory, tutorial, or practical)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     component_id: str = Field(..., alias="componentId", min_length=1)
     component_type: Literal["theory", "tutorial", "practical"] = Field(
@@ -41,7 +41,7 @@ class SubjectComponent(BaseModel):
 class FixedTiming(BaseModel):
     """Fixed timing for a subject (pre-scheduled)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     day: str = Field(..., description="Day of the week (Mon, Tue, etc.)")
     slots: list[str] = Field(..., description="Slot IDs for the session")
@@ -54,7 +54,7 @@ class SubjectFull(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     subject_code: str = Field(..., alias="subjectCode", min_length=1)
-    short_code: str = Field(..., alias="shortCode", min_length=1)
+    short_code: Optional[str] = Field(None, alias="shortCode")
     title: str = Field(..., min_length=1)
     credit_pattern: list[int] = Field(..., alias="creditPattern")
     total_credits: int = Field(..., alias="totalCredits", ge=0)
@@ -70,6 +70,8 @@ class SubjectFull(BaseModel):
     sections: Optional[list[str]] = None
     fixed_timing: Optional[FixedTiming] = Field(None, alias="fixedTiming")
     not_in_main_timetable: Optional[bool] = Field(None, alias="notInMainTimetable")
+    student_count: Optional[int] = Field(None, alias="studentCount")
+    flexible: Optional[bool] = None
 
     @field_validator("credit_pattern")
     @classmethod
@@ -114,7 +116,7 @@ class SubjectFull(BaseModel):
 class SubjectsFullFile(BaseModel):
     """Wrapper for subjects2Full.json file."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     subjects: list[SubjectFull]
 

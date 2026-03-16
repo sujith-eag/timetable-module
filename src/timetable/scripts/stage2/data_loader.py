@@ -6,9 +6,13 @@ Handles file reading, JSON parsing, and basic validation.
 """
 
 import json
+import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Tuple
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 
 class Stage1DataLoader:
@@ -47,12 +51,16 @@ class Stage1DataLoader:
         """
         filepath = self.stage1_dir / filename
         if not filepath.exists():
+            logger.warning(f"File not found: {filepath}")
             raise FileNotFoundError(f"File not found: {filepath}")
         
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+            logger.debug(f"Successfully loaded: {filename}")
+            return data
         except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in {filename}: {e}")
             raise ValueError(f"Invalid JSON in {filename}: {e}")
     
     def load_config(self) -> Dict[str, Any]:
@@ -78,6 +86,16 @@ class Stage1DataLoader:
         data = self._load_json("subjects1CoreBasic.json")
         return data.get("subjects", [])
     
+    def load_subjects_sem2_core(self) -> List[Dict[str, Any]]:
+        """Load semester 2 core subjects"""
+        data = self._load_json("subjects2CoreBasic.json")
+        return data.get("subjects", [])
+    
+    def load_subjects_sem2_elective(self) -> List[Dict[str, Any]]:
+        """Load semester 2 elective subjects"""
+        data = self._load_json("subjects2ElectBasic.json")
+        return data.get("subjects", [])
+    
     def load_subjects_sem3_core(self) -> List[Dict[str, Any]]:
         """Load semester 3 core subjects"""
         data = self._load_json("subjects3CoreBasic.json")
@@ -88,23 +106,162 @@ class Stage1DataLoader:
         data = self._load_json("subjects3ElectBasic.json")
         return data.get("subjects", [])
     
-    def load_subjects_diff(self) -> List[Dict[str, Any]]:
-        """Load diff subjects"""
-        data = self._load_json("subjects3Diff.json")
-        return data.get("subjects", [])
+    def load_subjects_sem4_core(self) -> List[Dict[str, Any]]:
+        """Load semester 4 core subjects"""
+        try:
+            data = self._load_json("subjects4CoreBasic.json")
+            return data.get("subjects", [])
+        except FileNotFoundError:
+            return []
     
-    def load_all_subjects(self) -> List[Dict[str, Any]]:
+    def load_subjects_sem1_diff(self) -> List[Dict[str, Any]]:
+        """Load semester 1 differentiated subjects"""
+        try:
+            data = self._load_json("subjects1Diff.json")
+            return data.get("subjects", [])
+        except FileNotFoundError:
+            return []
+    
+    def load_subjects_sem2_diff(self) -> List[Dict[str, Any]]:
+        """Load semester 2 differentiated subjects"""
+        try:
+            data = self._load_json("subjects2Diff.json")
+            return data.get("subjects", [])
+        except FileNotFoundError:
+            return []
+    
+    def load_subjects_sem3_diff(self) -> List[Dict[str, Any]]:
+        """Load semester 3 differentiated subjects"""
+        try:
+            data = self._load_json("subjects3Diff.json")
+            return data.get("subjects", [])
+        except FileNotFoundError:
+            return []
+
+    def load_subjects_sem4_diff(self) -> List[Dict[str, Any]]:
+        """Load semester 4 differentiated subjects (fixed schedule)"""
+        try:
+            data = self._load_json("subjects4Diff.json")
+            return data.get("subjects", [])
+        except FileNotFoundError:
+            return []
+    
+    def load_subjects_diff(self) -> List[Dict[str, Any]]:
         """
-        Load all subjects from all files
+        Load differentiated subjects from all semesters.
+        
+        DEPRECATED: Use semester-specific loaders instead.
+        This method is kept for backward compatibility only.
+        """
+        all_diff = []
+        all_diff.extend(self.load_subjects_sem1_diff())
+        all_diff.extend(self.load_subjects_sem2_diff())
+        all_diff.extend(self.load_subjects_sem3_diff())
+        all_diff.extend(self.load_subjects_sem4_diff())
+        return all_diff
+    
+    def load_all_subjects(self, active_semesters: Optional[Tuple[int, ...]] = None) -> List[Dict[str, Any]]:
+        """
+        Load subjects from relevant semester files only.
+        
+        If active_semesters is provided, only loads subject files for those semesters.
+        If not provided, loads all available subject files (backward compatible behavior).
+        
+        Args:
+            active_semesters: Tuple of semester numbers to load (e.g., (2, 4) or (1, 3)).
+                            If None, loads all available subjects.
         
         Returns:
-            Combined list of all subjects
+            Combined list of all subjects from relevant files
         """
+        if active_semesters is None:
+            # Backward compatible: load all available
+            active_semesters = (1, 2, 3, 4)
+        
         all_subjects = []
-        all_subjects.extend(self.load_subjects_sem1_core())
-        all_subjects.extend(self.load_subjects_sem3_core())
-        all_subjects.extend(self.load_subjects_sem3_elective())
-        all_subjects.extend(self.load_subjects_diff())
+        
+        # Load by semester, only if semester is active
+        if 1 in active_semesters:
+            try:
+                subjects = self.load_subjects_sem1_core()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 1 core subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 1 core subjects file not found")
+        
+        if 2 in active_semesters:
+            try:
+                subjects = self.load_subjects_sem2_core()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 2 core subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 2 core subjects file not found")
+            
+            try:
+                subjects = self.load_subjects_sem2_elective()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 2 elective subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 2 elective subjects file not found")
+        
+        if 3 in active_semesters:
+            try:
+                subjects = self.load_subjects_sem3_core()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 3 core subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 3 core subjects file not found")
+            
+            try:
+                subjects = self.load_subjects_sem3_elective()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 3 elective subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 3 elective subjects file not found")
+        
+        if 4 in active_semesters:
+            try:
+                subjects = self.load_subjects_sem4_core()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 4 core subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 4 core subjects file not found")
+        
+        # Load diff subjects ONLY for active semesters
+        # Load them individually to maintain semester boundaries
+        if 1 in active_semesters:
+            try:
+                subjects = self.load_subjects_sem1_diff()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 1 differentiated subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 1 differentiated subjects file not found")
+        
+        if 2 in active_semesters:
+            try:
+                subjects = self.load_subjects_sem2_diff()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 2 differentiated subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 2 differentiated subjects file not found")
+        
+        if 3 in active_semesters:
+            try:
+                subjects = self.load_subjects_sem3_diff()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 3 differentiated subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 3 differentiated subjects file not found")
+        
+        if 4 in active_semesters:
+            try:
+                subjects = self.load_subjects_sem4_diff()
+                all_subjects.extend(subjects)
+                logger.info(f"Loaded {len(subjects)} Semester 4 differentiated subjects")
+            except FileNotFoundError:
+                logger.debug("Semester 4 differentiated subjects file not found")
+        
+        logger.info(f"Total subjects loaded: {len(all_subjects)} from Semester(s): {', '.join(map(str, sorted(active_semesters)))}")
         return all_subjects
     
     def load_all(self) -> Dict[str, Any]:
@@ -128,8 +285,12 @@ class Stage1DataLoader:
             "subjects": self.load_all_subjects(),
             "subjects_by_category": {
                 "sem1_core": self.load_subjects_sem1_core(),
+                "sem2_core": self.load_subjects_sem2_core(),
+                "sem2_elective": self.load_subjects_sem2_elective(),
                 "sem3_core": self.load_subjects_sem3_core(),
                 "sem3_elective": self.load_subjects_sem3_elective(),
+                "sem4_core": self.load_subjects_sem4_core(),
+                "sem4_diff": self.load_subjects_sem4_diff(),
                 "diff": self.load_subjects_diff()
             }
         }

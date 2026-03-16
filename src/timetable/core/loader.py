@@ -42,6 +42,7 @@ from pydantic import BaseModel, ValidationError as PydanticValidationError
 
 from timetable.core.exceptions import DataLoadError, ValidationError
 from timetable.core.logging import get_logger
+from timetable.core.semester_detector import detect_active_semesters
 from timetable.models.stage1 import (
     Config,
     ConfigFile,
@@ -234,6 +235,7 @@ class DataLoader:
         self,
         data_dir: Union[str, Path],
         strict: bool = False,
+        auto_detect_semesters: bool = True,
     ) -> None:
         """
         Initialize the data loader.
@@ -241,16 +243,34 @@ class DataLoader:
         Args:
             data_dir: Root directory containing stage_1, stage_2, etc.
             strict: If True, raise errors on warnings
+            auto_detect_semesters: If True, auto-detect active semesters from studentGroups.json
         """
         self.data_dir = Path(data_dir)
         self.strict = strict
         self._cache: dict[str, Any] = {}
+        self._active_semesters: Optional[tuple[int, ...]] = None
 
         if not self.data_dir.exists():
             raise DataLoadError(
                 f"Data directory not found: {self.data_dir}",
                 filepath=self.data_dir,
             )
+        
+        # Auto-detect active semesters from studentGroups.json
+        if auto_detect_semesters:
+            try:
+                student_groups = self._load_student_groups_impl()
+                student_groups_dict = student_groups.dict(by_alias=True)
+                self._active_semesters = detect_active_semesters(student_groups_dict)
+                logger.info(
+                    f"Auto-detected active semesters: {self._active_semesters}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Could not auto-detect active semesters: {e}. "
+                    f"Will load all available semester data."
+                )
+                self._active_semesters = None
 
     def stage_dir(self, stage: int) -> Path:
         """Get the directory path for a specific stage."""
@@ -270,6 +290,14 @@ class DataLoader:
         """Clear all cached data."""
         self._cache.clear()
         logger.debug("Cache cleared")
+    
+    def get_active_semesters(self) -> Optional[tuple[int, ...]]:
+        """Get the detected active semesters, or None if auto-detect failed."""
+        return self._active_semesters
+    
+    def has_semester_detection(self) -> bool:
+        """Check if semester detection was successful."""
+        return self._active_semesters is not None
 
     # ==================== Stage 1 Loaders ====================
 
@@ -340,19 +368,46 @@ class DataLoader:
         semester: Optional[int],
         include_electives: bool,
     ) -> list[Subject]:
-        """Implementation of subjects loading."""
+        """Implementation of subjects loading with dynamic semester filtering."""
         subjects: list[Subject] = []
         stage1_dir = self.stage_dir(1)
 
-        # Determine which files to load
+        # Determine which semesters to load
+        semesters_to_load = []
+        if semester is not None:
+            # If specific semester requested, only load that
+            semesters_to_load = [semester]
+        elif self._active_semesters:
+            # If we detected active semesters, use those
+            semesters_to_load = list(self._active_semesters)
+        else:
+            # Fallback: load all (for backward compatibility)
+            semesters_to_load = [1, 2, 3, 4]
+        
+        # Determine which files to load based on active semesters
         files_to_load = []
-        if semester is None or semester == 1:
-            files_to_load.append(("subjects1CoreBasic.json", False))
-        if semester is None or semester == 3:
-            files_to_load.append(("subjects3CoreBasic.json", False))
-            if include_electives:
-                files_to_load.append(("subjects3ElectBasic.json", True))
-
+        for sem in semesters_to_load:
+            if sem == 1:
+                files_to_load.append(("subjects1CoreBasic.json", False))
+                if include_electives:
+                    files_to_load.append(("subjects1Diff.json", False))
+            elif sem == 2:
+                files_to_load.append(("subjects2CoreBasic.json", False))
+                if include_electives:
+                    files_to_load.append(("subjects2ElectBasic.json", True))
+                    files_to_load.append(("subjects2Diff.json", False))
+            elif sem == 3:
+                files_to_load.append(("subjects3CoreBasic.json", False))
+                if include_electives:
+                    files_to_load.append(("subjects3ElectBasic.json", True))
+                    files_to_load.append(("subjects3Diff.json", False))
+            elif sem == 4:
+                files_to_load.append(("subjects4CoreBasic.json", False))
+                if include_electives:
+                    files_to_load.append(("subjects4ElectBasic.json", True))
+                    files_to_load.append(("subjects4Diff.json", False))
+        
+        # Load only identified files
         for filename, is_elective in files_to_load:
             filepath = stage1_dir / filename
             if filepath.exists():
@@ -364,12 +419,17 @@ class DataLoader:
                 logger.debug(
                     f"Loaded {len(subject_file.subjects)} subjects from {filename}"
                 )
+            else:
+                logger.debug(f"Subject file not found (skipped): {filename}")
 
         # Filter by semester if specified
         if semester is not None:
             subjects = [s for s in subjects if s.semester == semester]
 
-        logger.info(f"Loaded {len(subjects)} subjects total")
+        logger.info(
+            f"Loaded {len(subjects)} subjects total "
+            f"(Semesters: {', '.join(map(str, semesters_to_load))})"
+        )
         return subjects
 
     def load_student_groups(self) -> StudentGroupFile:

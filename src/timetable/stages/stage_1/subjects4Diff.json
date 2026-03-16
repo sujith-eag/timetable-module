@@ -1,0 +1,64 @@
+{
+  "subjects": [
+    {
+      "subjectCode": "25MCAP2",
+      "shortCode": "Proj",
+      "title": "Project Work - Phase II",
+      "creditPattern": [0, 0, 1],
+      "totalCredits": 1,
+      "department": "MCA",
+      "semester": 4,
+      "isElective": false,
+      "type": "diff",
+      "priority": "high",
+      "assignedTo": "all_faculty",
+      "sections": ["ALL"],
+      "fixedTiming": {
+        "day": "Sat",
+        "slots": ["S1", "S2"],
+        "duration": 110
+      },
+      "components": [
+        {
+          "componentType": "practical",
+          "credits": 1,
+          "sessionDuration": 110,
+          "sessionsPerWeek": 1,
+          "mustBeInRoomType": "lab",
+          "blockSizeSlots": 2,
+          "mustBeContiguous": true
+        }
+      ]
+    },
+    {
+      "subjectCode": "25MCAS1",
+      "shortCode": "Sem",
+      "title": "Technical Seminar",
+      "creditPattern": [0, 0, 1],
+      "totalCredits": 1,
+      "department": "MCA",
+      "semester": 4,
+      "isElective": false,
+      "type": "diff",
+      "priority": "high",
+      "assignedTo": "all_faculty",
+      "sections": ["ALL"],
+      "fixedTiming": {
+        "day": "Sat",
+        "slots": ["S3", "S4"],
+        "duration": 110
+      },
+      "components": [
+        {
+          "componentType": "practical",
+          "credits": 1,
+          "sessionDuration": 110,
+          "sessionsPerWeek": 1,
+          "mustBeInRoomType": "lecture",
+          "blockSizeSlots": 2,
+          "mustBeContiguous": true
+        }
+      ]
+    }
+  ]
+}

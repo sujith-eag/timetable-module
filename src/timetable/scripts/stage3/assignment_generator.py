@@ -16,19 +16,25 @@ import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from timetable.scripts.stage3.data_loader_stage2 import DataLoaderStage2
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    pass
 
 
 class AssignmentGenerator:
     """Generates teaching assignments from Stage 2 data."""
     
-    def __init__(self, loader: DataLoaderStage2):
+    def __init__(self, loader: DataLoaderStage2, semester: Optional[int] = None):
         """
         Initialize the assignment generator.
         
         Args:
             loader: DataLoaderStage2 instance with loaded data
+            semester: Semester number (1, 2, 3, or 4). If None, rules loaded for each semester as needed.
         """
         self.loader = loader
+        self.semester = semester
         self.assignment_counter = 0
         self.elective_differentiation_rules = self._load_differentiation_rules()
     
@@ -296,17 +302,63 @@ class AssignmentGenerator:
         return None
     
     def _get_elective_category(self, subject_code: str) -> Optional[str]:
-        """Get elective category (AD or SS) from subject code."""
+        """
+        Get elective category from subject code.
+        
+        Supports multiple formats:
+        - Sem 3: "24MCAAD*" -> "AD", "24MCASS*" -> "SS"
+        - Sem 2: "25MCAE*" -> "DEFAULT"
+        - Sem 4: No electives
+        
+        Args:
+            subject_code: Subject code (e.g., "24MCAAD1", "25MCAE11")
+            
+        Returns:
+            Category string or None if not an elective
+        """
+        # Sem 3 electives
         if "MCAAD" in subject_code:
             return "AD"
         elif "MCASS" in subject_code:
             return "SS"
+        # Sem 2 electives (25MCAE*)
+        elif "MCAE" in subject_code:
+            return "DEFAULT"
+        # Not an elective or unknown format
         return None
     
     def _load_differentiation_rules(self) -> Dict[str, Any]:
-        """Load elective differentiation rules from Stage 1."""
+        """
+        Load elective differentiation rules from Stage 1.
+        
+        Loads the appropriate differentiation file based on semester:
+        - Sem 1: elective1Differentiation.json
+        - Sem 2: elective2Differentiation.json
+        - Sem 3: elective3Differentiation.json
+        - Sem 4: None needed (no electives)
+        """
         try:
-            rules_file = self.loader.stage_1_path / "electiveDifferentiation.json"
+            # Determine which semester's rules to load
+            if self.semester == 4:
+                # No electives in Sem 4
+                return {}
+            
+            # Try to determine semester from faculty data if not explicitly set
+            semester = self.semester
+            if semester is None:
+                # Look at faculty assignments to infer semester
+                for faculty in self.loader.faculty_data:
+                    if faculty.get("primaryAssignments"):
+                        semester = faculty["primaryAssignments"][0].get("semester")
+                        if semester:
+                            break
+            
+            # Default to Sem 3 if still not determined
+            if semester is None:
+                semester = 3
+            
+            # Load the appropriate differentiation file
+            rules_file = self.loader.stage_1_path / f"elective{semester}Differentiation.json"
             
             if rules_file.exists():
                 with open(rules_file, 'r', encoding='utf-8') as f:
@@ -318,20 +370,31 @@ class AssignmentGenerator:
                         rules[category] = rule["differentiation"]
                     return rules
             else:
-                print(f"Warning: electiveDifferentiation.json not found at {rules_file}")
-                # Default fallback: AD splits everything, SS combines everything
-                return {
-                    "AD": {
-                        "theory": {"separateSections": True},
-                        "tutorial": {"separateSections": True},
-                        "practical": {"separateSections": True}
-                    },
-                    "SS": {
-                        "theory": {"separateSections": False},
-                        "tutorial": {"separateSections": False},
-                        "practical": {"separateSections": False}
+                print(f"Warning: elective{semester}Differentiation.json not found at {rules_file}")
+                # Default fallback based on semester
+                if semester == 2:
+                    # Sem 2: All electives are combined
+                    return {
+                        "DEFAULT": {
+                            "theory": {"separateSections": False},
+                            "tutorial": {"separateSections": False},
+                            "practical": {"separateSections": False}
+                        }
                     }
-                }
+                else:
+                    # Sem 3: AD splits, SS combines
+                    return {
+                        "AD": {
+                            "theory": {"separateSections": False},
+                            "tutorial": {"separateSections": False},
+                            "practical": {"separateSections": True}
+                        },
+                        "SS": {
+                            "theory": {"separateSections": False},
+                            "tutorial": {"separateSections": False},
+                            "practical": {"separateSections": False}
+                        }
+                    }
         except Exception as e:
             print(f"Error loading differentiation rules: {e}")
             return {}

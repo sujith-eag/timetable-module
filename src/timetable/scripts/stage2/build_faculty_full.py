@@ -9,12 +9,16 @@ This script generates the complete faculty file for Stage 2 by:
 """
 
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Dict, List, Any
 
 from timetable.scripts.stage2.data_loader import Stage1DataLoader
 from timetable.scripts.stage2.calculate_workload import WorkloadCalculator
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 
 class FacultyFullBuilder:
@@ -57,19 +61,34 @@ class FacultyFullBuilder:
         Returns:
             Complete faculty dict
         """
+        faculty_id = faculty.get('facultyId', 'UNKNOWN')
         faculty_full = {
-            'facultyId': faculty['facultyId'],
+            'facultyId': faculty_id,
             'name': faculty['name'],
             'designation': faculty.get('designation', ''),
             'department': 'MCA'  # Default for now
         }
         
+        logger.debug(f"Building faculty entries for: {faculty_id} ({faculty['name']})")
+        
         # Parse primary assignments
         assigned_subjects = faculty.get('assignedSubjects', [])
-        primary_assignments = self.calculator.parse_assigned_subjects(
-            assigned_subjects,
-            self.student_groups_data
-        )
+        
+        if not assigned_subjects:
+            logger.debug(f"Faculty {faculty_id} has no assigned subjects")
+            primary_assignments = []
+        else:
+            logger.debug(f"Faculty {faculty_id} has {len(assigned_subjects)} assigned subject(s)")
+            primary_assignments = self.calculator.parse_assigned_subjects(
+                assigned_subjects,
+                self.student_groups_data
+            )
+            
+            if len(primary_assignments) < len(assigned_subjects):
+                logger.warning(
+                    f"Faculty {faculty_id}: Only {len(primary_assignments)}/{len(assigned_subjects)} "
+                    f"assignments were successfully parsed. Check logs above for missing subjects or student groups."
+                )
         
         faculty_full['primaryAssignments'] = primary_assignments
         
@@ -221,6 +240,22 @@ def main(data_dir=None):
     print("Building faculty2Full.json...")
     print(f"Data directory: {data_dir}")
     print()
+    
+    # Detect and log active semesters (optional feature)
+    try:
+        from timetable.core.semester_detector import detect_active_semesters
+        import json
+        with open(stage1_dir / "studentGroups.json", 'r') as f:
+            student_groups = json.load(f)
+        active_semesters = detect_active_semesters(student_groups)
+        print(f"✓ Building for active semesters: {active_semesters}")
+        print()
+    except ImportError:
+        print("⚠ Semester detection not available")
+        print()
+    except Exception as e:
+        print(f"⚠ Note: Could not detect semesters: {e}")
+        print()
     
     try:
         # Check if subjects2Full.json exists

@@ -186,74 +186,99 @@ def analyze_semester(data, semester_num):
     
     return stats
 
-def generate_combined_statistics(sem1_stats, sem3_stats):
-    """Generate combined statistics across both semesters."""
+def generate_combined_statistics(stats_dict, semesters):
+    """Generate combined statistics across multiple semesters dynamically.
+    
+    Args:
+        stats_dict: Dictionary mapping semester -> stats (e.g., {2: stat_obj, 4: stat_obj})
+        semesters: List of semester numbers in order (e.g., [2, 4])
+    """
+    # Calculate totals
     combined = {
-        'totalAssignments': sem1_stats['totalAssignments'] + sem3_stats['totalAssignments'],
-        'totalSessions': sem1_stats['totalSessions'] + sem3_stats['totalSessions'],
-        'totalHours': round(sem1_stats['totalHours'] + sem3_stats['totalHours'], 2)
+        'totalAssignments': sum(stats_dict[sem]['totalAssignments'] for sem in semesters),
+        'totalSessions': sum(stats_dict[sem]['totalSessions'] for sem in semesters),
+        'totalHours': round(sum(stats_dict[sem]['totalHours'] for sem in semesters), 2)
     }
     
-    # Faculty workload across both semesters
-    all_faculty = set(sem1_stats['facultyDistribution'].keys()) | set(sem3_stats['facultyDistribution'].keys())
+    # Faculty workload across all semesters
+    all_faculty = set()
+    for sem in semesters:
+        all_faculty.update(stats_dict[sem]['facultyDistribution'].keys())
     
     faculty_combined = {}
     for fid in all_faculty:
-        sem1_data = sem1_stats['facultyDistribution'].get(fid, {
-            'facultyName': '',
-            'assignments': 0,
-            'sessions': 0,
-            'hours': 0,
-            'subjects': [],
-            'subjectCount': 0
-        })
-        sem3_data = sem3_stats['facultyDistribution'].get(fid, {
-            'facultyName': '',
-            'assignments': 0,
-            'sessions': 0,
-            'hours': 0,
-            'subjects': [],
-            'subjectCount': 0
-        })
+        faculty_data_by_sem = {}
+        faculty_name = ''
+        
+        # Collect data for each semester
+        for sem in semesters:
+            sem_data = stats_dict[sem]['facultyDistribution'].get(fid, {
+                'facultyName': '',
+                'assignments': 0,
+                'sessions': 0,
+                'hours': 0,
+                'subjects': [],
+                'subjectCount': 0
+            })
+            faculty_data_by_sem[f'sem{sem}'] = {
+                'assignments': sem_data['assignments'],
+                'sessions': sem_data['sessions'],
+                'hours': sem_data['hours'],
+                'subjects': sem_data['subjects']
+            }
+            if not faculty_name and sem_data.get('facultyName'):
+                faculty_name = sem_data['facultyName']
         
         faculty_combined[fid] = {
-            'facultyName': sem1_data['facultyName'] or sem3_data['facultyName'],
-            'sem1': {
-                'assignments': sem1_data['assignments'],
-                'sessions': sem1_data['sessions'],
-                'hours': sem1_data['hours'],
-                'subjects': sem1_data['subjects']
-            },
-            'sem3': {
-                'assignments': sem3_data['assignments'],
-                'sessions': sem3_data['sessions'],
-                'hours': sem3_data['hours'],
-                'subjects': sem3_data['subjects']
-            },
+            'facultyName': faculty_name,
+            **faculty_data_by_sem,
             'total': {
-                'assignments': sem1_data['assignments'] + sem3_data['assignments'],
-                'sessions': sem1_data['sessions'] + sem3_data['sessions'],
-                'hours': round(sem1_data['hours'] + sem3_data['hours'], 2),
-                'subjects': sorted(list(set(sem1_data['subjects'] + sem3_data['subjects']))),
-                'subjectCount': len(set(sem1_data['subjects'] + sem3_data['subjects']))
+                'assignments': sum(
+                    stats_dict[sem]['facultyDistribution'].get(fid, {}).get('assignments', 0)
+                    for sem in semesters
+                ),
+                'sessions': sum(
+                    stats_dict[sem]['facultyDistribution'].get(fid, {}).get('sessions', 0)
+                    for sem in semesters
+                ),
+                'hours': round(sum(
+                    stats_dict[sem]['facultyDistribution'].get(fid, {}).get('hours', 0)
+                    for sem in semesters
+                ), 2),
+                'subjects': sorted(list(set(
+                    subject
+                    for sem in semesters
+                    for subject in stats_dict[sem]['facultyDistribution'].get(fid, {}).get('subjects', [])
+                ))),
+                'subjectCount': len(set(
+                    subject
+                    for sem in semesters
+                    for subject in stats_dict[sem]['facultyDistribution'].get(fid, {}).get('subjects', [])
+                ))
             }
         }
     
     combined['facultyWorkload'] = faculty_combined
     
     # Resource utilization analysis
-    combined['resourceAnalysis'] = {
-        'lectureRoomSessions': sem1_stats['byRoomType'].get('lecture', {}).get('sessions', 0) + 
-                               sem3_stats['byRoomType'].get('lecture', {}).get('sessions', 0),
-        'labSessions': sem1_stats['byRoomType'].get('lab', {}).get('sessions', 0) + 
-                       sem3_stats['byRoomType'].get('lab', {}).get('sessions', 0),
-        'theorySessions': sem1_stats['byComponent'].get('theory', {}).get('sessions', 0) + 
-                         sem3_stats['byComponent'].get('theory', {}).get('sessions', 0),
-        'practicalSessions': sem1_stats['byComponent'].get('practical', {}).get('sessions', 0) + 
-                            sem3_stats['byComponent'].get('practical', {}).get('sessions', 0),
-        'tutorialSessions': sem1_stats['byComponent'].get('tutorial', {}).get('sessions', 0) + 
-                           sem3_stats['byComponent'].get('tutorial', {}).get('sessions', 0)
-    }
+    resource_analysis = {}
+    for sem in semesters:
+        by_room = stats_dict[sem]['byRoomType']
+        by_comp = stats_dict[sem]['byComponent']
+        
+        resource_analysis.setdefault('lectureRoomSessions', 0)
+        resource_analysis.setdefault('labSessions', 0)
+        resource_analysis.setdefault('theorySessions', 0)
+        resource_analysis.setdefault('practicalSessions', 0)
+        resource_analysis.setdefault('tutorialSessions', 0)
+        
+        resource_analysis['lectureRoomSessions'] += by_room.get('lecture', {}).get('sessions', 0)
+        resource_analysis['labSessions'] += by_room.get('lab', {}).get('sessions', 0)
+        resource_analysis['theorySessions'] += by_comp.get('theory', {}).get('sessions', 0)
+        resource_analysis['practicalSessions'] += by_comp.get('practical', {}).get('sessions', 0)
+        resource_analysis['tutorialSessions'] += by_comp.get('tutorial', {}).get('sessions', 0)
+    
+    combined['resourceAnalysis'] = resource_analysis
     
     return combined
 
@@ -271,8 +296,6 @@ def main(data_dir=None):
     
     # Construct paths
     stage_3_dir = data_dir / "stage_3"
-    assignments_sem3 = stage_3_dir / "teachingAssignments_sem3.json"
-    assignments_sem1 = stage_3_dir / "teachingAssignments_sem1.json"
     output_file = stage_3_dir / "statistics.json"
     
     print("Generating comprehensive statistics for Stage 3...")
@@ -280,38 +303,70 @@ def main(data_dir=None):
     print(f"Data directory: {data_dir}")
     print()
     
-    # Load data
-    print("\n📂 Loading teaching assignments...")
-    sem1_data = load_assignments(assignments_sem1)
-    sem3_data = load_assignments(assignments_sem3)
-    print(f"   ✓ Semester 1: {len(sem1_data['assignments'])} assignments")
-    print(f"   ✓ Semester 3: {len(sem3_data['assignments'])} assignments")
+    # Dynamically discover which assignment files exist
+    print("\n📂 Discovering assignment files...")
+    semester_data = {}
+    for sem in [1, 2, 3, 4]:
+        filepath = stage_3_dir / f"teachingAssignments_sem{sem}.json"
+        if filepath.exists():
+            try:
+                semester_data[sem] = load_assignments(filepath)
+                print(f"   ✓ Semester {sem}: {len(semester_data[sem]['assignments'])} assignments")
+            except Exception as e:
+                print(f"   ✗ Semester {sem}: Error loading file - {e}")
+        else:
+            print(f"   - Semester {sem}: File not found (not needed for this project)")
+    
+    if not semester_data:
+        print("\n❌ No assignment files found in stage_3/")
+        return 1
     
     # Analyze each semester
-    print("\n📊 Analyzing Semester 1...")
-    sem1_stats = analyze_semester(sem1_data, 1)
-    print(f"   ✓ {sem1_stats['totalAssignments']} assignments, {sem1_stats['totalSessions']} sessions/week")
+    print("\n📊 Analyzing statistics...")
+    semester_stats = {}
+    for sem in sorted(semester_data.keys()):
+        print(f"   Analyzing Semester {sem}...")
+        semester_stats[sem] = analyze_semester(semester_data[sem], sem)
+        print(f"   ✓ {semester_stats[sem]['totalAssignments']} assignments, "
+              f"{semester_stats[sem]['totalSessions']} sessions/week")
     
-    print("\n📊 Analyzing Semester 3...")
-    sem3_stats = analyze_semester(sem3_data, 3)
-    print(f"   ✓ {sem3_stats['totalAssignments']} assignments, {sem3_stats['totalSessions']} sessions/week")
-    
-    # Generate combined statistics
+    # Generate combined statistics if multiple semesters
     print("\n🔗 Generating combined statistics...")
-    combined_stats = generate_combined_statistics(sem1_stats, sem3_stats)
-    print(f"   ✓ Total: {combined_stats['totalAssignments']} assignments across both semesters")
+    if len(semester_stats) > 1:
+        # Use all available semesters for combined stats
+        available_sems = sorted(semester_stats.keys())
+        combined_stats = generate_combined_statistics(
+            semester_stats, 
+            available_sems
+        )
+        print(f"   ✓ Total across Semesters {', '.join(map(str, available_sems))}: "
+              f"{combined_stats['totalAssignments']} assignments")
+    else:
+        # Single semester - create simple combined
+        only_sem = list(semester_stats.keys())[0]
+        combined_stats = {
+            'totalAssignments': semester_stats[only_sem]['totalAssignments'],
+            'totalSessions': semester_stats[only_sem]['totalSessions'],
+            'totalHours': semester_stats[only_sem]['totalHours'],
+            'facultyWorkload': semester_stats[only_sem]['facultyWorkload'],
+            'resourceAnalysis': semester_stats[only_sem]['resourceAnalysis']
+        }
+        print(f"   ✓ Total for Semester {only_sem}: {combined_stats['totalAssignments']} assignments")
     
-    # Build output
+    # Build output with dynamic semester data
     output = {
         'metadata': {
             'generatedAt': datetime.now().isoformat(),
             'generator': 'generate_statistics.py',
-            'version': '1.0'
+            'version': '1.0',
+            'activeSemesters': sorted(semester_stats.keys())
         },
-        'semester1': sem1_stats,
-        'semester3': sem3_stats,
         'combined': combined_stats
     }
+    
+    # Add individual semester stats
+    for sem in sorted(semester_stats.keys()):
+        output[f'semester{sem}'] = semester_stats[sem]
     
     # Save to file
     print(f"\n💾 Saving statistics to {output_file.name}...")
@@ -330,6 +385,7 @@ def main(data_dir=None):
     print(f"   • Total Assignments: {combined_stats['totalAssignments']}")
     print(f"   • Total Sessions/Week: {combined_stats['totalSessions']}")
     print(f"   • Total Hours/Week: {combined_stats['totalHours']}h")
+    print(f"   • Active Semesters: {', '.join(map(str, sorted(semester_stats.keys())))}")
     
     print(f"\n👥 Faculty ({len(combined_stats['facultyWorkload'])} total):")
     for fid, data in sorted(combined_stats['facultyWorkload'].items(), 
@@ -337,11 +393,16 @@ def main(data_dir=None):
         print(f"   • {data['facultyName']} ({fid}):")
         print(f"     - Total: {data['total']['assignments']} assignments, "
               f"{data['total']['sessions']} sessions/week, {data['total']['hours']}h/week")
-        print(f"     - Sem 1: {data['sem1']['sessions']} sessions, Sem 3: {data['sem3']['sessions']} sessions")
+        # Show breakdown by semester
+        for sem in sorted(semester_stats.keys()):
+            sem_key = f'sem{sem}'
+            if sem_key in data:
+                print(f"     - Sem {sem}: {data[sem_key]['sessions']} sessions")
     
     print(f"\n📚 Subjects:")
-    print(f"   • Semester 1: {len(sem1_stats['subjectCoverage'])} subjects")
-    print(f"   • Semester 3: {len(sem3_stats['subjectCoverage'])} subjects")
+    for sem in sorted(semester_stats.keys()):
+        num_subjects = len(semester_stats[sem].get('subjectCoverage', {}))
+        print(f"   • Semester {sem}: {num_subjects} subjects")
     
     print(f"\n🏫 Room Requirements:")
     print(f"   • Lecture room sessions: {combined_stats['resourceAnalysis']['lectureRoomSessions']}/week")

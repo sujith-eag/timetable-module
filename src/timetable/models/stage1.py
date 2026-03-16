@@ -257,7 +257,7 @@ class FacultyFile(BaseModel):
 class Subject(BaseModel):
     """A subject/course."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     subject_code: str = Field(..., alias="subjectCode", min_length=1)
     short_code: str = Field(..., alias="shortCode", min_length=1)
@@ -269,7 +269,7 @@ class Subject(BaseModel):
     department: str = Field(...)
     semester: int = Field(..., ge=1, le=8)
     is_elective: bool = Field(..., alias="isElective")
-    type: Literal["core", "elective"] = Field(...)
+    type: Literal["core", "elective", "diff"] = Field(...)
 
     @field_validator("credit_pattern")
     @classmethod

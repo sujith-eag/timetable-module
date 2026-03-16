@@ -2,12 +2,15 @@
 Stage 4 build functionality.
 """
 
+import logging
 from pathlib import Path
 from typing import List, Tuple, Optional
 
 from timetable.core.loader import DataLoader
 from timetable.core.exceptions import TimetableError
 from . import run_script, get_scripts_dir
+
+logger = logging.getLogger(__name__)
 
 
 def build_stage4(data_path: Path, validate: bool = False, verbose: bool = False) -> List[Tuple[str, bool, str]]:
@@ -35,10 +38,23 @@ def build_stage4(data_path: Path, validate: bool = False, verbose: bool = False)
     # Check prerequisites
     loader = DataLoader(data_path)
     try:
-        assignments1 = loader.load_teaching_assignments(semester=1)
-        assignments3 = loader.load_teaching_assignments(semester=3)
+        # Detect active semesters dynamically (work with any semester pair: 1&3 or 2&4)
+        active_sems = loader.get_active_semesters()
+        if not active_sems:
+            # Fallback to default if detection fails
+            active_sems = (1, 3)
+        
+        # Load assignments for all active semesters
+        assignment_summary = []
+        for sem in active_sems:
+            try:
+                assignments = loader.load_teaching_assignments(semester=sem)
+                assignment_summary.append(f"{len(assignments.assignments)} sem{sem}")
+            except TimetableError:
+                logger.warning(f"No assignments found for semester {sem}")
+        
         overlap = loader.load_overlap_constraints()
-        results.append(("Prerequisites check", True, f"Stage 3 data found: {len(assignments1.assignments)} sem1, {len(assignments3.assignments)} sem3 assignments"))
+        results.append(("Prerequisites check", True, f"Stage 3 data found: {', '.join(assignment_summary)} assignments"))
     except TimetableError as e:
         results.append(("Prerequisites check", False, f"Stage 3 data not found or invalid: {e}"))
         return results

@@ -100,14 +100,18 @@ class SubjectsFullBuilder:
         
         return enriched
     
-    def build_all_subjects(self) -> List[Dict[str, Any]]:
+    def build_all_subjects(self, active_semesters=None) -> List[Dict[str, Any]]:
         """
-        Build all subjects with components
+        Build all subjects with components.
+        
+        Args:
+            active_semesters: Tuple of semester numbers to include (e.g., (2, 4)).
+                            If None, loads all available subjects.
         
         Returns:
             List of complete subject dicts
         """
-        subjects = self.loader.load_all_subjects()
+        subjects = self.loader.load_all_subjects(active_semesters=active_semesters)
         subjects_full = []
         
         for subject in subjects:
@@ -246,9 +250,28 @@ def main(data_dir=None):
     print()
     
     try:
+        # Detect active semesters from studentGroups.json (optional feature)
+        active_semesters = None
+        try:
+            from timetable.core.semester_detector import detect_active_semesters
+            import json
+            with open(stage1_dir / "studentGroups.json", 'r') as f:
+                student_groups = json.load(f)
+            active_semesters = detect_active_semesters(student_groups)
+            print(f"✓ Detected active semesters: {active_semesters}")
+            print()
+        except ImportError:
+            print("⚠ Semester detection not available")
+            print("  Will load all available subjects")
+            print()
+        except Exception as e:
+            print(f"⚠ Could not detect active semesters: {e}")
+            print(f"  Will load all available subjects")
+            print()
+        
         # Build subjects
         builder = SubjectsFullBuilder(stage1_dir=str(stage1_dir), stage2_dir=str(stage2_dir))
-        subjects_full = builder.build_all_subjects()
+        subjects_full = builder.build_all_subjects(active_semesters=active_semesters)
         
         # Validate components
         errors = []

@@ -1,0 +1,34 @@
+{
+  "subjects": [
+    {
+      "subjectCode": "PROCTOR_SEM2",
+      "shortCode": "Proctor",
+      "title": "Proctor Meeting",
+      "creditPattern": [0, 0, 0],
+      "totalCredits": 0,
+      "department": "MCA",
+      "semester": 2,
+      "isElective": false,
+      "type": "diff",
+      "priority": "high",
+      "assignedTo": "all_faculty",
+      "sections": ["A", "B"],
+      "fixedTiming": {
+        "day": "Mon",
+        "slots": ["S7"],
+        "duration": 55
+      },
+      "components": [
+        {
+          "componentType": "tutorial",
+          "credits": 0,
+          "sessionDuration": 55,
+          "sessionsPerWeek": 1,
+          "mustBeInRoomType": "lecture",
+          "blockSizeSlots": 1,
+          "mustBeContiguous": false
+        }
+      ]
+    }
+  ]
+}

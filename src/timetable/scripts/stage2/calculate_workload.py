@@ -6,8 +6,12 @@ Takes faculty assignments and subject component data to compute hours per week.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Any
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 
 class WorkloadCalculator:
@@ -25,6 +29,8 @@ class WorkloadCalculator:
         for subject in subjects_full:
             if 'subjectCode' in subject:
                 self.subjects_map[subject['subjectCode']] = subject
+        
+        logger.debug(f"WorkloadCalculator initialized with {len(self.subjects_map)} subjects")
         
         # Build component lookup map
         self.components_map = {}
@@ -94,7 +100,10 @@ class WorkloadCalculator:
         """
         subject = self.subjects_map.get(subject_code)
         if not subject:
+            logger.warning(f"Subject not found in subjects_map: '{subject_code}'. Skipping assignment.")
             return None
+        
+        logger.debug(f"Creating assignment for subject: {subject_code}")
         
         # Determine semester and sections
         semester = subject.get('semester')
@@ -118,16 +127,25 @@ class WorkloadCalculator:
                         parent_group = esg.get('groupId')
                         break
                 
+                if not parent_group:
+                    logger.warning(f"Elective subject {subject_code} not found in elective subject groups. Skipping.")
+                    return None
+                
                 # Get student groups and sections for this elective
-                if parent_group:
-                    for esg in elective_student_groups:
-                        if esg.get('parentGroupId') == parent_group:
-                            student_group_ids.append(esg['studentGroupId'])
-                            # Add sections from this elective student group
-                            esg_sections = esg.get('sections', [])
-                            for sec in esg_sections:
-                                if sec not in actual_sections:
-                                    actual_sections.append(sec)
+                found_groups = False
+                for esg in elective_student_groups:
+                    if esg.get('parentGroupId') == parent_group:
+                        found_groups = True
+                        student_group_ids.append(esg['studentGroupId'])
+                        # Add sections from this elective student group
+                        esg_sections = esg.get('sections', [])
+                        for sec in esg_sections:
+                            if sec not in actual_sections:
+                                actual_sections.append(sec)
+                
+                if not found_groups:
+                    logger.warning(f"No elective student groups found for parent group {parent_group} (subject: {subject_code}). Skipping.")
+                    return None
         else:
             # Regular subjects with specified sections
             actual_sections = sections
@@ -142,14 +160,30 @@ class WorkloadCalculator:
             
             for section in sections:
                 # Find matching student group
+                found = False
                 for sg in regular_groups:
-                    if sg.get('semester') == semester and sg.get('section') == section:
-                        student_group_ids.append(sg['studentGroupId'])
+                    if sg.get('semester') == semester:
+                        # Handle special case: 'ALL' sections map to 'Combined' (Sem 4)
+                        section_match = sg.get('section') == section
+                        if section == 'ALL' and sg.get('section') == 'Combined':
+                            section_match = True
+                        
+                        if section_match:
+                            student_group_ids.append(sg['studentGroupId'])
+                            found = True
+                            break
+                
+                if not found:
+                    logger.warning(f"No student group found for semester {semester}, section {section} (subject: {subject_code})")
         
         # Get component IDs and types
         components = subject.get('components', [])
         component_ids = [c.get('componentId') for c in components if c.get('componentId')]
         component_types = [c.get('componentType') for c in components if c.get('componentType')]
+        
+        if not component_ids:
+            logger.warning(f"No components found for subject {subject_code}. Skipping.")
+            return None
         
         # Calculate hours (now returns whole numbers)
         hours_per_section = self._calculate_hours_for_subject(subject_code)
@@ -167,6 +201,8 @@ class WorkloadCalculator:
             for c in components
         )
         total_sessions = sessions_per_section * effective_sections
+        
+        logger.debug(f"Assignment created: {subject_code} - {total_hours}h/week, {total_sessions} sessions/week")
         
         return {
             'subjectCode': subject_code,
