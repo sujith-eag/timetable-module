@@ -145,6 +145,7 @@ class ScheduleEnricher:
         
         skipped = 0
         enriched = 0
+        not_applicable_rooms = 0
         
         for session in schedule:
             # Skip sessions with no day/slot (not yet scheduled)
@@ -158,8 +159,14 @@ class ScheduleEnricher:
                 enriched_schedule.append(enriched_session)
                 session_counter += 1
                 enriched += 1
+                
+                # Track special room types
+                if enriched_session.get('roomId') == 'NOT_APPLICABLE':
+                    not_applicable_rooms += 1
         
         print(f"   ✓ Enriched {enriched} sessions")
+        if not_applicable_rooms > 0:
+            print(f"   ℹ️  {not_applicable_rooms} sessions have NOT_APPLICABLE rooms (special assignments like proctoring)")
         if skipped > 0:
             print(f"   ⚠️  Skipped {skipped} unscheduled sessions (no day/slot)")
         print()

@@ -135,20 +135,35 @@ class ScheduleAnalyzer:
         return "\n".join(section)
 
     def _analyze_faculty_conflicts(self, faculty_grid: dict) -> list:
-        """Finds faculty members scheduled for multiple sessions at the same time."""
+        """Finds faculty members scheduled for multiple sessions at the same time.
+        
+        Note: Skips ALL_FACULTY (placeholder for diff subjects) since multiple sections
+        can legitimately share ALL_FACULTY at the same time (they serve different groups).
+        """
         conflicts = []
         for key, sessions in faculty_grid.items():
             if len(sessions) > 1:
                 fac_id, time_key = key.split('-', 1)
+                # Skip ALL_FACULTY - it's a placeholder for diff subjects, not a real faculty member
+                if fac_id == "ALL_FACULTY":
+                    continue
                 conflicts.append(f"**Faculty Conflict:** `{fac_id}` is double-booked at `{time_key}` in sessions: `{', '.join(sessions)}`.")
         return conflicts
 
     def _analyze_room_conflicts(self, room_grid: dict) -> list:
-        """Finds rooms booked for multiple sessions at the same time."""
+        """Finds rooms booked for multiple sessions at the same time.
+        
+        Note: Skips NOT_APPLICABLE rooms (used for diff subjects like proctoring
+        that don't require physical space). Multiple sessions sharing NOT_APPLICABLE
+        is expected and not a conflict.
+        """
         conflicts = []
         for key, sessions in room_grid.items():
             if len(sessions) > 1:
                 room_id, time_key = key.split('-', 1)
+                # Skip NOT_APPLICABLE rooms (used for diff subjects without physical spaces)
+                if room_id == "NOT_APPLICABLE":
+                    continue
                 conflicts.append(f"**Room Conflict:** `{room_id}` is double-booked at `{time_key}` for sessions: `{', '.join(sessions)}`.")
         return conflicts
 
@@ -176,11 +191,23 @@ class ScheduleAnalyzer:
         return sorted(list(set(conflicts)))
 
     def _analyze_room_capacity(self) -> list:
-        """Finds sessions where student count exceeds room capacity."""
+        """Finds sessions where student count exceeds room capacity.
+        
+        Note: Skips NOT_APPLICABLE rooms (used for diff subjects that don't
+        require physical space) since capacity doesn't apply to them.
+        """
         violations = []
         for session in self.sessions:
             room_id = session.get('roomId')
-            if not room_id or room_id not in self.rooms_map:
+            if not room_id:
+                continue
+            
+            # Skip NOT_APPLICABLE rooms - they don't have physical capacity constraints
+            if room_id == "NOT_APPLICABLE":
+                continue
+            
+            # Skip rooms not in the rooms map (unrecognized room IDs)
+            if room_id not in self.rooms_map:
                 continue
 
             room_capacity = self.rooms_map[room_id]['capacity']
@@ -195,7 +222,11 @@ class ScheduleAnalyzer:
         return violations
 
     def _analyze_faculty_workload(self) -> list:
-        """Analyzes faculty workload for soft constraint violations like too many consecutive hours."""
+        """Analyzes faculty workload for soft constraint violations like too many consecutive hours.
+        
+        Note: Skips ALL_FACULTY (placeholder for diff subjects) since it's not a real faculty
+        member with workload constraints. Multiple assignments to ALL_FACULTY are expected.
+        """
         issues = []
         max_consecutive = self.scheduling_input['configuration']['resourceConstraints']['maxConsecutiveSlotsPerFaculty']
         
@@ -210,6 +241,9 @@ class ScheduleAnalyzer:
             faculty_schedules[session['facultyId']].append((day, slot_num))
 
         for fac_id, schedule in faculty_schedules.items():
+            # Skip ALL_FACULTY - it's a placeholder for diff subjects, not a real faculty member
+            if fac_id == "ALL_FACULTY":
+                continue
             # Sort by day, then slot
             schedule.sort()
             

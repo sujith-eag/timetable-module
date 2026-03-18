@@ -187,6 +187,17 @@ class SchedulingInputBuilder:
             else:
                 valid_slot_types = ["double"]
             
+            # Handle NOT_APPLICABLE rooms (diff subjects without physical room requirement)
+            must_be_in_room = a.get("constraints", {}).get("mustBeInRoom")
+            if must_be_in_room == "NOT_APPLICABLE":
+                # For NOT_APPLICABLE: no room type requirement, no preferred rooms
+                requires_room_type = None
+                preferred_rooms = []
+            else:
+                # For regular assignments: use existing room settings
+                requires_room_type = a["requiresRoomType"]
+                preferred_rooms = a.get("preferredRooms", [])
+            
             transformed.append({
                 "assignmentId": a["assignmentId"],
                 "subjectCode": a["subjectCode"],
@@ -201,8 +212,8 @@ class SchedulingInputBuilder:
                 "sessionDuration": a["sessionDuration"],
                 "sessionsPerWeek": a["sessionsPerWeek"],
                 "totalSessionsNeeded": a["sessionsPerWeek"],
-                "requiresRoomType": a["requiresRoomType"],
-                "preferredRooms": a.get("preferredRooms", []),
+                "requiresRoomType": requires_room_type,
+                "preferredRooms": preferred_rooms,
                 "requiresContiguous": a["requiresContiguous"],
                 "validSlotTypes": valid_slot_types,
                 "priority": a["priority"],

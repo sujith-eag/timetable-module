@@ -129,6 +129,10 @@ class AssignmentValidator:
             for issue in mismatches:
                 report_parts.append(f"- {issue}")
         
+        # Add note about diff subjects
+        report_parts.append("\n### 📌 Notes")
+        report_parts.append("- **Diff Subjects**: Subjects like PROCTOR_SEM2, 25MCAP2, and 25MCAS1 are special administrative assignments that use `ALL_FACULTY` as the faculty placeholder. These are expected and not validated against individual faculty authorizations.")
+        
         return "\n".join(report_parts)
 
 def main():

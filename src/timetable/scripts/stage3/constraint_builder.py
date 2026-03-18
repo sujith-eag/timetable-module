@@ -125,11 +125,12 @@ class ConstraintBuilder:
             assignment: Teaching assignment
             
         Returns:
-            Room ID if pre-allocated, None otherwise
+            Room ID if pre-allocated, "NOT_APPLICABLE" for diff subjects without rooms, None otherwise
         """
         subject_code = assignment.get("subjectCode")
         component_type = assignment.get("componentType")
         student_group_ids = assignment.get("studentGroupIds", [])
+        is_diff_subject = assignment.get("isDiffSubject", False)
         
         # Check each student group for room allocation
         for student_group_id in student_group_ids:
@@ -154,6 +155,11 @@ class ConstraintBuilder:
                 # Try direct component_id
                 if component_id in allocations:
                     return allocations[component_id]
+        
+        # NEW: For diff subjects without room allocation, use NOT_APPLICABLE marker
+        # This prevents room allocation while preserving faculty and group constraints
+        if is_diff_subject:
+            return "NOT_APPLICABLE"
         
         return None
     

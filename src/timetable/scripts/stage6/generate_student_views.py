@@ -54,17 +54,33 @@ class StudentViewGenerator:
             return json.load(f)
 
     def _get_slots_info(self) -> dict:
-        """Creates a sorted map of time slots."""
+        """Creates a sorted map of INDIVIDUAL time slots.
+        
+        Extracts individual slots from both single slots (S1, S2) and 
+        double-slot combinations (S1+S2 -> S1, S2; S3+S4 -> S3, S4).
+        Returns complete header with all individual slots in time order.
+        """
         slots = defaultdict(dict)
         for session in self.sessions:
             slot_id = session['slotId']
-            if '+' not in slot_id: # Only use single slots for rows
-                 slots[slot_id]['start'] = session['startTime']
-                 slots[slot_id]['end'] = session['endTime']
+            
+            if '+' in slot_id:
+                # For double-slot entries like S1+S2, extract both slots
+                parts = slot_id.split('+')
+                for part in parts:
+                    if part not in slots:  # Not yet recorded
+                        slots[part]['start'] = session['startTime']
+                        slots[part]['end'] = session['endTime']
+            else:
+                # Single slot - use as is
+                slots[slot_id]['start'] = session['startTime']
+                slots[slot_id]['end'] = session['endTime']
         
-        # Sort slots by start time
-        sorted_slots = sorted(slots.items(), key=lambda item: item[1]['start'])
+        # Sort slots by start time, then by slot ID
+        sorted_slots = sorted(slots.items(), key=lambda item: (item[1]['start'], item[0]))
         return dict(sorted_slots)
+
+
 
     def generate_reports(self):
         """
@@ -107,11 +123,14 @@ class StudentViewGenerator:
             if not day or not slot:
                 continue
             
+            # Format room: use "NA" for NOT_APPLICABLE
+            room_display = "NA" if session['roomId'] == "NOT_APPLICABLE" else f"Room: {session['roomId']}"
+            
             entry = (
-                f"**{session['shortCode']}** ({session['componentType']})<br>"
-                f"{session['facultyId']}<br>"
-                f"Room: {session['roomId']}"
+                f"**{session['subjectTitle']}**" if session.get('subjectTitle') and session['subjectTitle'] != session.get('shortCode') 
+                else f"**{session['shortCode']}**"
             )
+            entry += f" ({session['componentType']})<br>{session['facultyId']}<br>{room_display}"
             
             for section_code in session.get('sections', []):
                 if section_code in sections:
@@ -134,37 +153,41 @@ class StudentViewGenerator:
             # Rows
             for day in self.days:
                 row = [f"**{day}**"]
-                for slot_id, times in self.slots_info.items():
-                    # New, more robust logic
-                    starting_entries = []
+                for slot_id in self.slots_info.keys():
+                    # Collect ALL entries: single-slot AND double-slot start (both can coexist!)
+                    entries = []
                     
-                    # 1. Check for single-slot sessions starting here
+                    # 1. Check for single-slot match
                     single_key = f"{day}-{slot_id}"
-                    starting_entries.extend(section_schedules[section_code].get(single_key, []))
-
-                    # 2. Check for double-slot sessions starting here
-                    for d_slot in ['S1+S2', 'S3+S4', 'S5+S6', 'S6+S7']:
-                        if slot_id == d_slot.split('+')[0]:
-                            double_key = f"{day}-{d_slot}"
-                            starting_entries.extend(section_schedules[section_code].get(double_key, []))
+                    if single_key in section_schedules[section_code]:
+                        entries.extend(section_schedules[section_code][single_key])
                     
-                    final_entry = ""
-                    if starting_entries:
-                        final_entry = "<hr>".join(starting_entries)
-                    else:
-                        # 3. Only if nothing starts here, check for continuation
-                        for d_slot in ['S1+S2', 'S3+S4', 'S5+S6', 'S6+S7']:
-                            if slot_id == d_slot.split('+')[1]: # This is the second half
-                                prev_slot_key = f"{day}-{d_slot}"
-                                prev_entries = section_schedules[section_code].get(prev_slot_key)
-                                if prev_entries:
+                    # 2. Check if this is the START of a double-slot (combine, don't skip)
+                    for double_slot in ['S1+S2', 'S3+S4', 'S5+S6', 'S6+S7']:
+                        if slot_id == double_slot.split('+')[0]:  # This slot starts the double
+                            double_key = f"{day}-{double_slot}"
+                            if double_key in section_schedules[section_code]:
+                                entries.extend(section_schedules[section_code][double_key])
+                    
+                    # 3. If no entries yet, check if this is the CONTINUATION of a double-slot
+                    if not entries:
+                        for double_slot in ['S1+S2', 'S3+S4', 'S5+S6', 'S6+S7']:
+                            if slot_id == double_slot.split('+')[1]:  # This slot continues a double
+                                double_key = f"{day}-{double_slot}"
+                                if double_key in section_schedules[section_code]:
+                                    prev_entries = section_schedules[section_code][double_key]
                                     cont_markers = [f"*({e.split('**')[1]} cont.)*" for e in prev_entries]
-                                    final_entry = "<hr>".join(cont_markers)
+                                    entries = cont_markers
                                     break
                     
-                    row.append(final_entry)
+                    # 4. Add to row
+                    if entries:
+                        row.append("<hr>".join(entries))
+                    else:
+                        row.append("")
+                
                 report_parts.append("| " + " | ".join(row) + " |")
-            report_parts.append("\n---\n")
+            report_parts.append("\n---\n")  # Separator between sections
 
         return "\n".join(report_parts)
 

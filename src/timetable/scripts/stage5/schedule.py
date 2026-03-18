@@ -105,14 +105,28 @@ class ScheduleOptimizer:
         return all_rooms
     
     def check_room_available(self, room_id: str, day: str, slots: List[str]) -> bool:
-        """Check if room is available for all requested slots on a day."""
+        """Check if room is available for all requested slots on a day.
+        NOT_APPLICABLE rooms are always available (no physical room to book)."""
+        # Short-circuit for NOT_APPLICABLE rooms (diff subjects without physical space)
+        if room_id == "NOT_APPLICABLE":
+            return True
+        
         for slot in slots:
             if (room_id, day, slot) in self.room_bookings:
                 return False
         return True
     
     def check_faculty_available(self, faculty_id: str, day: str, slots: List[str]) -> bool:
-        """Check if faculty has no conflicts."""
+        """Check if faculty has no conflicts.
+        
+        Note: ALL_FACULTY is a placeholder for diff subjects (proctoring, seminars, etc.)
+        and is not a real faculty member. Multiple sections can all use ALL_FACULTY 
+        at the same time since they serve different student groups. Skip conflict check for it.
+        """
+        # ALL_FACULTY is not a real faculty member - multiple sections can use it simultaneously
+        if faculty_id == "ALL_FACULTY":
+            return True
+        
         for slot in slots:
             if (faculty_id, day, slot) in self.faculty_bookings:
                 return False
@@ -164,10 +178,20 @@ class ScheduleOptimizer:
         return total_students <= room_capacity
     
     def mark_usage(self, room_id: str, faculty_id: str, group_ids: List[str], day: str, slots: List[str], assignment_id: str):
-        """Mark resources as used."""
+        """Mark resources as used.
+        
+        For NOT_APPLICABLE rooms: skip room booking (no physical space to reserve)
+        For ALL_FACULTY: skip faculty booking (placeholder, not a real faculty member)
+        """
         for slot in slots:
-            self.room_bookings[(room_id, day, slot)] = assignment_id
-            self.faculty_bookings[(faculty_id, day, slot)] = assignment_id
+            # Only track room booking if not NOT_APPLICABLE
+            if room_id != "NOT_APPLICABLE":
+                self.room_bookings[(room_id, day, slot)] = assignment_id
+            
+            # Only track faculty booking if not ALL_FACULTY (it's a placeholder, not real)
+            if faculty_id != "ALL_FACULTY":
+                self.faculty_bookings[(faculty_id, day, slot)] = assignment_id
+            
             for group_id in group_ids:
                 self.group_bookings[(group_id, day, slot)] = assignment_id
     
@@ -217,6 +241,7 @@ class ScheduleOptimizer:
         Respects fixed constraints from Stage 4:
         - If fixedDay is set, only tries that day
         - If fixedSlot is set, only tries those slots
+        - If room is NOT_APPLICABLE, skips room allocation (diff subjects without physical space)
         """
         assignment_id = assignment['assignmentId']
         duration = assignment['sessionDuration']
@@ -230,6 +255,10 @@ class ScheduleOptimizer:
         constraints = assignment.get('constraints', {})
         fixed_day = constraints.get('fixedDay')
         fixed_slot = constraints.get('fixedSlot')
+        must_be_in_room = constraints.get('mustBeInRoom')
+        
+        # NEW: Check if this is a NOT_APPLICABLE room assignment (diff subject without physical room)
+        is_no_room = (must_be_in_room == "NOT_APPLICABLE")
         
         # Determine which days to try
         if fixed_day:
@@ -267,7 +296,25 @@ class ScheduleOptimizer:
                 if not self.check_group_overlap_constraints(group_ids, day, slots):
                     continue
                 
-                # Try each room (prefer preferred ones)
+                # NEW: For NOT_APPLICABLE rooms, skip room allocation entirely
+                if is_no_room:
+                    # No room needed - schedule immediately with NOT_APPLICABLE
+                    scheduled = {
+                        'assignmentId': assignment_id,
+                        'sessionNumber': session_num,
+                        'sessionsPerWeek': assignment['sessionsPerWeek'],
+                        'sessionDuration': duration,
+                        'day': day,
+                        'slotId': '+'.join(slots) if len(slots) > 1 else slots[0],
+                        'roomId': 'NOT_APPLICABLE',
+                        'requiresRoomType': None,
+                        'isDiffSubject': is_diff_subject
+                    }
+                    
+                    self.mark_usage('NOT_APPLICABLE', faculty_id, group_ids, day, slots, assignment_id)
+                    return True, scheduled
+                
+                # Original logic: Try each room (prefer preferred ones)
                 valid_rooms = self.get_room_options(room_type, preferred_rooms)
                 
                 for room_id in valid_rooms:

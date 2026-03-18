@@ -152,7 +152,7 @@ class SchedulingAssignment(BaseModel):
     session_duration: int = Field(alias="sessionDuration")
     sessions_per_week: int = Field(alias="sessionsPerWeek")
     total_sessions_needed: int = Field(alias="totalSessionsNeeded")
-    requires_room_type: str = Field(alias="requiresRoomType")
+    requires_room_type: Optional[str] = Field(default=None, alias="requiresRoomType")
     preferred_rooms: List[str] = Field(alias="preferredRooms")
     requires_contiguous: bool = Field(alias="requiresContiguous")
     valid_slot_types: List[str] = Field(alias="validSlotTypes")
@@ -172,6 +172,9 @@ class SchedulingAssignment(BaseModel):
     @field_validator('requires_room_type')
     @classmethod
     def validate_room_type(cls, v):
+        # Allow None for NOT_APPLICABLE rooms (diff subjects)
+        if v is None:
+            return v
         valid_types = ['lecture', 'lab', 'tutorial', 'seminar']
         if v not in valid_types:
             raise ValueError(f'Required room type must be one of {valid_types}')
