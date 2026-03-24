@@ -92,24 +92,36 @@ class FacultyFullBuilder:
         
         faculty_full['primaryAssignments'] = primary_assignments
         
-        # Parse supporting assignments
+        # Parse supporting assignments (can be string or dict with section-wise assignment)
+        # NOTE: Supporting assignments use parse_supported_subjects() which filters to ONLY practical components
         supporting_subjects = faculty.get('supportingSubjects', [])
         supporting_assignments = []
         
-        for subject_code in supporting_subjects:
-            # Get subject details
-            subject = self.calculator.subjects_map.get(subject_code)
-            if subject:
-                supporting_assignments.append({
-                    'subjectCode': subject_code,
-                    'semester': subject.get('semester'),
-                    'role': 'supporting'
-                })
+        if supporting_subjects:
+            logger.debug(f"Faculty {faculty_id} has {len(supporting_subjects)} supporting subject(s)")
+            supporting_assignments = self.calculator.parse_supported_subjects(
+                supporting_subjects,
+                self.student_groups_data
+            )
+            
+            # Mark all supporting assignments with 'supporting' role
+            for assignment in supporting_assignments:
+                assignment['role'] = 'supporting'
+            
+            if len(supporting_assignments) < len(supporting_subjects):
+                logger.warning(
+                    f"Faculty {faculty_id}: Only {len(supporting_assignments)}/{len(supporting_subjects)} "
+                    f"supporting assignments were successfully parsed. Check logs above for missing subjects or student groups."
+                )
         
         faculty_full['supportingAssignments'] = supporting_assignments
         
-        # Calculate workload stats
-        workload_stats = self.calculator.calculate_workload_stats(primary_assignments)
+        # Calculate workload stats - includes BOTH primary and supporting assignments
+        # Supporting assignments (typically labs) count toward total workload
+        workload_stats = self.calculator.calculate_workload_stats(
+            primary_assignments,
+            supporting_assignments
+        )
         faculty_full['workloadStats'] = workload_stats
         
         return faculty_full
@@ -163,7 +175,8 @@ class FacultyFullBuilder:
         
         # Create ALL_FACULTY entry if there are diff assignments
         if all_faculty_assignments:
-            workload_stats = self.calculator.calculate_workload_stats(all_faculty_assignments)
+            # ALL_FACULTY only has primary assignments (class-level diff subjects), no supporting
+            workload_stats = self.calculator.calculate_workload_stats(all_faculty_assignments, [])
             
             all_faculty_entry = {
                 'facultyId': 'ALL_FACULTY',
@@ -274,7 +287,15 @@ class FacultyFullBuilder:
             if supporting:
                 lines.append(f"  Supporting Assignments: {len(supporting)}")
                 for asn in supporting:
+                    sections_str = ', '.join(asn['sections']) if asn['sections'] else 'N/A'
+                    comp_types_str = ', '.join(asn['componentTypes'])
+                    student_groups_str = ', '.join(asn.get('studentGroupIds', [])) if asn.get('studentGroupIds') else 'N/A'
+                    
                     lines.append(f"    - {asn['subjectCode']} (Sem {asn.get('semester', 'N/A')})")
+                    lines.append(f"      Sections: {sections_str}")
+                    lines.append(f"      Student Groups: {student_groups_str}")
+                    lines.append(f"      Components: {comp_types_str}")
+                    lines.append(f"      Hours: {asn['totalWeeklyHours']:.1f}h, Sessions: {asn['totalSessionsPerWeek']}")
             
             # Workload stats
             stats = fac.get('workloadStats', {})

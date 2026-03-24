@@ -136,6 +136,8 @@ class AssignmentGenerator:
         is_diff = subject.get("type") == "diff"
         
         # For each component in this assignment
+        # NOTE: Stage 2 already filters supporting assignments to ONLY practical components
+        # So all component_types here are valid for both primary and supporting
         for component_type in set(component_types):
             component_id = self._get_component_id(subject_code, component_type)
             
@@ -171,7 +173,8 @@ class AssignmentGenerator:
                     room_type=room_type,
                     is_elective=is_elective,
                     is_diff=is_diff,
-                    subject=subject
+                    subject=subject,
+                    assignment_type=assignment_type
                 )
                 assignments.append(assignment)
             else:
@@ -211,7 +214,8 @@ class AssignmentGenerator:
                             room_type=room_type,
                             is_elective=is_elective,
                             is_diff=is_diff,
-                            subject=subject
+                            subject=subject,
+                            assignment_type=assignment_type
                         )
                         assignments.append(assignment)
                 else:
@@ -232,7 +236,8 @@ class AssignmentGenerator:
                         room_type=room_type,
                         is_elective=is_elective,
                         is_diff=is_diff,
-                        subject=subject
+                        subject=subject,
+                        assignment_type=assignment_type
                     )
                     assignments.append(assignment)
         
@@ -255,7 +260,8 @@ class AssignmentGenerator:
         room_type: str,
         is_elective: bool,
         is_diff: bool,
-        subject: Dict[str, Any]
+        subject: Dict[str, Any],
+        assignment_type: str = "primary"  # 'primary' or 'supporting'
     ) -> Dict[str, Any]:
         """Create a single teaching assignment."""
         section_str = ",".join(sections)
@@ -284,6 +290,7 @@ class AssignmentGenerator:
             "priority": priority,
             "isElective": is_elective,
             "isDiffSubject": is_diff,
+            "assignmentType": assignment_type,  # Track whether primary or supporting
             "constraints": {}  # Will be filled by constraint_builder
         }
         
@@ -458,8 +465,16 @@ class AssignmentGenerator:
                 )
                 all_assignments.extend(assignments)
             
-            # Skip supporting assignments for Stage 3 (deferred to Stage 5)
-            # Supporting faculty will be assigned after main schedule is complete
+            # Process supporting assignments (lab/tutorial support faculty)
+            # Supporting subjects are now included as full assignments with section-wise constraints
+            for faculty_assignment in faculty.get("supportingAssignments", []):
+                if semester and faculty_assignment["semester"] != semester:
+                    continue
+                
+                assignments = self.generate_assignment_from_faculty_assignment(
+                    faculty, faculty_assignment, "supporting"
+                )
+                all_assignments.extend(assignments)
         
         return all_assignments
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "timetable-builder"
-version = "0.2.0"
+version = "0.2.2"
 description = "Academic Timetable Generation System - A comprehensive solution for generating and managing academic schedules"
 readme = "README.md"
 license = {file = "LICENSE"}

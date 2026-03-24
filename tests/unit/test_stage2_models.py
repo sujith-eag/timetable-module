@@ -413,7 +413,15 @@ class TestFacultyFull:
                 SupportingAssignment(
                     subjectCode="25MCA17",
                     semester=1,
+                    sections=["A"],
+                    studentGroupIds=["MCA_SEM1_A"],
+                    componentIds=["25MCA17_TU", "25MCA17_PR"],
+                    componentTypes=["tutorial", "practical"],
                     role="supporting",
+                    weeklyHoursPerSection=6,
+                    totalWeeklyHours=6,
+                    sessionsPerWeekPerSection=3,
+                    totalSessionsPerWeek=3,
                 ),
             ],
             workloadStats=WorkloadStats(
@@ -481,7 +489,15 @@ class TestFacultyFull:
                 SupportingAssignment(
                     subjectCode="CS101",
                     semester=1,
+                    sections=["A", "B"],
+                    studentGroupIds=["CS_SEM1_A", "CS_SEM1_B"],
+                    componentIds=["CS101_TU", "CS101_PR"],
+                    componentTypes=["tutorial", "practical"],
                     role="supporting",
+                    weeklyHoursPerSection=6,
+                    totalWeeklyHours=12,
+                    sessionsPerWeekPerSection=3,
+                    totalSessionsPerWeek=6,
                 ),
             ],
             workloadStats=WorkloadStats(

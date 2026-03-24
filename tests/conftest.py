@@ -133,7 +133,7 @@ def sample_faculty() -> dict[str, Any]:
                 "name": "Dr. Jane Doe",
                 "designation": "Associate Professor",
                 "assignedSubjects": [{"CS301": ["A", "B"]}],
-                "supportingSubjects": [],
+                "supportingSubjects": [{"CS102": ["A"]}],
             },
         ]
     }

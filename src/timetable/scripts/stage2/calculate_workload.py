@@ -81,11 +81,57 @@ class WorkloadCalculator:
         
         return assignments
     
+    def parse_supported_subjects(
+        self,
+        supported_subjects: List[Any],
+        student_groups_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Parse the supportingSubjects field into structured assignments with ONLY practical components.
+        
+        Supporting staff assignments should include ONLY practical/lab components, not theory or tutorial.
+        This method ensures supporting assignments are correctly filtered.
+        
+        Args:
+            supported_subjects: Raw supportingSubjects list from Stage 1
+            student_groups_data: Student groups configuration (full dict with all groups)
+            
+        Returns:
+            List of parsed assignment dicts (supporting only) with practical components only
+        """
+        assignments = []
+        
+        for item in supported_subjects:
+            if isinstance(item, dict):
+                # Format: {"24MCA31": ["A", "B"]}
+                for subject_code, sections in item.items():
+                    assignment = self._create_assignment(
+                        subject_code,
+                        sections,
+                        student_groups_data,
+                        is_supporting=True  # Flag to filter components
+                    )
+                    if assignment:
+                        assignments.append(assignment)
+            elif isinstance(item, str):
+                # Format: "24MCASS5" (no section specified)
+                assignment = self._create_assignment(
+                    item,
+                    None,  # Will be determined from student groups
+                    student_groups_data,
+                    is_supporting=True  # Flag to filter components
+                )
+                if assignment:
+                    assignments.append(assignment)
+        
+        return assignments
+    
     def _create_assignment(
         self,
         subject_code: str,
         sections: List[str] = None,
-        student_groups_data: Any = None
+        student_groups_data: Any = None,
+        is_supporting: bool = False
     ) -> Dict[str, Any]:
         """
         Create an assignment entry
@@ -177,7 +223,16 @@ class WorkloadCalculator:
                     logger.warning(f"No student group found for semester {semester}, section {section} (subject: {subject_code})")
         
         # Get component IDs and types
+        # NOTE: For supporting assignments, filter to ONLY practical components
         components = subject.get('components', [])
+        
+        if is_supporting:
+            # Supporting staff ONLY handle practical/lab components
+            components = [c for c in components if c.get('componentType', '').lower() == 'practical']
+            if not components:
+                logger.warning(f"No practical components found for supporting subject {subject_code}. Skipping.")
+                return None
+        
         component_ids = [c.get('componentId') for c in components if c.get('componentId')]
         component_types = [c.get('componentType') for c in components if c.get('componentType')]
         
@@ -186,7 +241,8 @@ class WorkloadCalculator:
             return None
         
         # Calculate hours (now returns whole numbers)
-        hours_per_section = self._calculate_hours_for_subject(subject_code)
+        # If supporting, calculate hours for practical components only
+        hours_per_section = self._calculate_hours_for_subject(subject_code, is_supporting=is_supporting)
         
         # For electives, count the number of student groups as "sections"
         effective_sections = len(student_group_ids) if is_elective else len(actual_sections)
@@ -218,12 +274,13 @@ class WorkloadCalculator:
             'totalSessionsPerWeek': total_sessions
         }
     
-    def _calculate_hours_for_subject(self, subject_code: str) -> int:
+    def _calculate_hours_for_subject(self, subject_code: str, is_supporting: bool = False) -> int:
         """
         Calculate total hours per week for one section of a subject
         
         Args:
             subject_code: Subject code
+            is_supporting: If True, only calculate hours for practical components
             
         Returns:
             Total hours per week (whole hours, rounded up from minutes)
@@ -233,6 +290,11 @@ class WorkloadCalculator:
             return 0
         
         components = subject.get('components', [])
+        
+        # For supporting assignments, only count practical components
+        if is_supporting:
+            components = [c for c in components if c.get('componentType', '').lower() == 'practical']
+        
         total_minutes = 0
         
         for comp in components:
@@ -248,17 +310,29 @@ class WorkloadCalculator:
     
     def calculate_workload_stats(
         self,
-        primary_assignments: List[Dict[str, Any]]
+        primary_assignments: List[Dict[str, Any]],
+        supporting_assignments: List[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Calculate workload statistics from primary assignments
+        Calculate workload statistics from primary AND supporting assignments.
+        
+        Supporting assignments are typically practical/lab components where the faculty
+        assists the primary instructor. Their hours count toward total workload.
+        
+        NOTE: This method uses component information already calculated in assignments,
+        not from re-expanding subject definitions. This is crucial for supporting
+        assignments which have already had non-practical components filtered out.
         
         Args:
             primary_assignments: List of primary assignment dicts
+            supporting_assignments: List of supporting assignment dicts (optional)
             
         Returns:
-            Workload stats dict with whole hours
+            Workload stats dict with hours broken down by component type
         """
+        if supporting_assignments is None:
+            supporting_assignments = []
+        
         import math
         
         stats = {
@@ -269,42 +343,50 @@ class WorkloadCalculator:
             'totalWeeklyHours': 0
         }
         
-        for assignment in primary_assignments:
+        # Process both primary and supporting assignments
+        # Use assignment's already-calculated data, don't recalculate from subject
+        all_assignments = primary_assignments + supporting_assignments
+        
+        for assignment in all_assignments:
+            # Get component types from this specific assignment
+            # (not from subject definition - subject has MORE components)
+            component_types = assignment.get('componentTypes', [])
+            effective_sections = len(assignment.get('sections', []))
+            if effective_sections == 0:
+                effective_sections = len(assignment.get('studentGroupIds', []))
+            if effective_sections == 0:
+                effective_sections = 1
+            
+            # Get hours from subject for each component in THIS assignment
             subject_code = assignment['subjectCode']
             subject = self.subjects_map.get(subject_code)
             
             if not subject:
                 continue
             
-            # Determine the effective number of sections/groups
-            # For electives, use student group count; for regular subjects, use sections
-            num_sections = len(assignment.get('sections', []))
-            num_student_groups = len(assignment.get('studentGroupIds', []))
+            subject_components = subject.get('components', [])
             
-            # Use whichever is greater (handles both regular and elective subjects)
-            effective_multiplier = max(num_sections, num_student_groups)
-            if effective_multiplier == 0:
-                effective_multiplier = 1  # At least count once
-            
-            components = subject.get('components', [])
-            
-            for comp in components:
-                comp_type = comp.get('componentType')
-                sessions = comp.get('sessionsPerWeek', 0)
-                duration = comp.get('sessionDuration', 0)
-                
-                # Calculate minutes and convert to whole hours (round up)
-                total_minutes = sessions * duration * effective_multiplier
-                hours = math.ceil(total_minutes / 60.0)
-                
-                if comp_type == 'theory':
-                    stats['theoryHours'] += hours
-                elif comp_type == 'tutorial':
-                    stats['tutorialHours'] += hours
-                elif comp_type == 'practical':
-                    stats['practicalHours'] += hours
-                
-                stats['totalSessions'] += sessions * effective_multiplier
+            # Only process components that are in this assignment's component list
+            for comp_type in assignment['componentTypes']:
+                # Find this specific component in subject
+                for comp in subject_components:
+                    if comp.get('componentType') == comp_type:
+                        sessions = comp.get('sessionsPerWeek', 0)
+                        duration = comp.get('sessionDuration', 0)
+                        
+                        # Calculate hours for this component's sections
+                        total_minutes = sessions * duration * effective_sections
+                        hours = math.ceil(total_minutes / 60.0)
+                        
+                        if comp_type == 'theory':
+                            stats['theoryHours'] += hours
+                        elif comp_type == 'tutorial':
+                            stats['tutorialHours'] += hours
+                        elif comp_type == 'practical':
+                            stats['practicalHours'] += hours
+                        
+                        stats['totalSessions'] += sessions * effective_sections
+                        break
         
         stats['totalWeeklyHours'] = (
             stats['theoryHours'] + 

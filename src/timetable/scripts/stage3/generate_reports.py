@@ -51,31 +51,76 @@ def generate_faculty_report(sem1_data, sem3_data):
         # Semester 1
         if sem1_assignments:
             report.append("### Semester 1\n\n")
-            report.append("| Subject | Component | Sections | Sessions/Week | Hours/Week |\n")
-            report.append("|---------|-----------|----------|---------------|------------|\n")
             
-            for a in sorted(sem1_assignments, key=lambda x: (x['subjectCode'], x['componentType'])):
-                hours = a['sessionsPerWeek'] * a['sessionDuration'] / 60
-                sections = ', '.join(a['sections'])
-                report.append(f"| {a['subjectTitle']} | {a['componentType'].title()} | "
-                            f"{sections} | {a['sessionsPerWeek']} | {hours:.1f}h |\n")
+            # Separate primary and supporting
+            primary_s1 = [a for a in sem1_assignments if a.get('assignmentType', 'primary') == 'primary']
+            supporting_s1 = [a for a in sem1_assignments if a.get('assignmentType') == 'supporting']
             
-            report.append("\n")
+            # Primary assignments
+            if primary_s1:
+                report.append("#### Primary Assignments\n\n")
+                report.append("| Subject | Component | Sections | Sessions/Week | Hours/Week |\n")
+                report.append("|---------|-----------|----------|---------------|------------|\n")
+                
+                for a in sorted(primary_s1, key=lambda x: (x['subjectCode'], x['componentType'])):
+                    hours = a['sessionsPerWeek'] * a['sessionDuration'] / 60
+                    sections = ', '.join(a['sections'])
+                    report.append(f"| {a['subjectTitle']} | {a['componentType'].title()} | "
+                                f"{sections} | {a['sessionsPerWeek']} | {hours:.1f}h |\n")
+                
+                report.append("\n")
+            
+            # Supporting assignments
+            if supporting_s1:
+                report.append("#### Supporting Assignments\n\n")
+                report.append("| Subject | Component | Sections | Sessions/Week | Hours/Week |\n")
+                report.append("|---------|-----------|----------|---------------|------------|\n")
+                
+                for a in sorted(supporting_s1, key=lambda x: (x['subjectCode'], x['componentType'])):
+                    hours = a['sessionsPerWeek'] * a['sessionDuration'] / 60
+                    sections = ', '.join(a['sections'])
+                    report.append(f"| {a['subjectTitle']} | {a['componentType'].title()} | "
+                                f"{sections} | {a['sessionsPerWeek']} | {hours:.1f}h |\n")
+                
+                report.append("\n")
         
         # Semester 3
         if sem3_assignments:
             report.append("### Semester 3\n\n")
-            report.append("| Subject | Component | Sections | Sessions/Week | Hours/Week | Elective |\n")
-            report.append("|---------|-----------|----------|---------------|------------|----------|\n")
             
-            for a in sorted(sem3_assignments, key=lambda x: (x['subjectCode'], x['componentType'])):
-                hours = a['sessionsPerWeek'] * a['sessionDuration'] / 60
-                sections = ', '.join(a['sections'])
-                elective = "Yes" if a['isElective'] else "No"
-                report.append(f"| {a['subjectTitle']} | {a['componentType'].title()} | "
-                            f"{sections} | {a['sessionsPerWeek']} | {hours:.1f}h | {elective} |\n")
+            # Separate primary and supporting
+            primary_s3 = [a for a in sem3_assignments if a.get('assignmentType', 'primary') == 'primary']
+            supporting_s3 = [a for a in sem3_assignments if a.get('assignmentType') == 'supporting']
             
-            report.append("\n")
+            # Primary assignments
+            if primary_s3:
+                report.append("#### Primary Assignments\n\n")
+                report.append("| Subject | Component | Sections | Sessions/Week | Hours/Week | Elective |\n")
+                report.append("|---------|-----------|----------|---------------|------------|----------|\n")
+                
+                for a in sorted(primary_s3, key=lambda x: (x['subjectCode'], x['componentType'])):
+                    hours = a['sessionsPerWeek'] * a['sessionDuration'] / 60
+                    sections = ', '.join(a['sections'])
+                    elective = "Yes" if a['isElective'] else "No"
+                    report.append(f"| {a['subjectTitle']} | {a['componentType'].title()} | "
+                                f"{sections} | {a['sessionsPerWeek']} | {hours:.1f}h | {elective} |\n")
+                
+                report.append("\n")
+            
+            # Supporting assignments
+            if supporting_s3:
+                report.append("#### Supporting Assignments\n\n")
+                report.append("| Subject | Component | Sections | Sessions/Week | Hours/Week | Elective |\n")
+                report.append("|---------|-----------|----------|---------------|------------|----------|\n")
+                
+                for a in sorted(supporting_s3, key=lambda x: (x['subjectCode'], x['componentType'])):
+                    hours = a['sessionsPerWeek'] * a['sessionDuration'] / 60
+                    sections = ', '.join(a['sections'])
+                    elective = "Yes" if a['isElective'] else "No"
+                    report.append(f"| {a['subjectTitle']} | {a['componentType'].title()} | "
+                                f"{sections} | {a['sessionsPerWeek']} | {hours:.1f}h | {elective} |\n")
+                
+                report.append("\n")
         
         report.append("---\n\n")
     
@@ -96,7 +141,8 @@ def generate_subject_report(sem1_data, sem3_data):
         subject_data[a['subjectCode']]['components'].append({
             'type': a['componentType'],
             'faculty': a['facultyName'],
-            'sessions': a['sessionsPerWeek']
+            'sessions': a['sessionsPerWeek'],
+            'assignmentType': a.get('assignmentType', 'primary')
         })
         subject_data[a['subjectCode']]['faculty'].add(a['facultyName'])
         subject_data[a['subjectCode']]['sections'].update(a['sections'])
@@ -107,10 +153,11 @@ def generate_subject_report(sem1_data, sem3_data):
         report.append(f"**Sections**: {', '.join(sorted(data['sections']))}\n\n")
         report.append(f"**Faculty**: {', '.join(sorted(data['faculty']))}\n\n")
         
-        report.append("| Component | Faculty | Sessions/Week |\n")
-        report.append("|-----------|---------|---------------|\n")
-        for comp in sorted(data['components'], key=lambda x: x['type']):
-            report.append(f"| {comp['type'].title()} | {comp['faculty']} | {comp['sessions']} |\n")
+        report.append("| Component | Faculty | Role | Sessions/Week |\n")
+        report.append("|-----------|---------|------|---------------|\n")
+        for comp in sorted(data['components'], key=lambda x: (x['type'], x.get('assignmentType', 'primary'))):
+            role = "Primary" if comp['assignmentType'] == 'primary' else "Supporting"
+            report.append(f"| {comp['type'].title()} | {comp['faculty']} | {role} | {comp['sessions']} |\n")
         report.append("\n")
     
     # Semester 3
@@ -129,7 +176,8 @@ def generate_subject_report(sem1_data, sem3_data):
             'type': a['componentType'],
             'faculty': a['facultyName'],
             'sessions': a['sessionsPerWeek'],
-            'sections': a['sections']
+            'sections': a['sections'],
+            'assignmentType': a.get('assignmentType', 'primary')
         })
         subject_data[a['subjectCode']]['faculty'].add(a['facultyName'])
         subject_data[a['subjectCode']]['sections'].update(a['sections'])
@@ -146,11 +194,12 @@ def generate_subject_report(sem1_data, sem3_data):
             report.append(f"**Sections**: {', '.join(sorted(data['sections']))}\n\n")
             report.append(f"**Faculty**: {', '.join(sorted(data['faculty']))}\n\n")
             
-            report.append("| Component | Faculty | Sections | Sessions/Week |\n")
-            report.append("|-----------|---------|----------|---------------|\n")
-            for comp in sorted(data['components'], key=lambda x: x['type']):
+            report.append("| Component | Faculty | Role | Sections | Sessions/Week |\n")
+            report.append("|-----------|---------|------|----------|---------------|\n")
+            for comp in sorted(data['components'], key=lambda x: (x['type'], x.get('assignmentType', 'primary'))):
                 sections = ', '.join(comp['sections'])
-                report.append(f"| {comp['type'].title()} | {comp['faculty']} | "
+                role = "Primary" if comp['assignmentType'] == 'primary' else "Supporting"
+                report.append(f"| {comp['type'].title()} | {comp['faculty']} | {role} | "
                             f"{sections} | {comp['sessions']} |\n")
             report.append("\n")
     
@@ -162,11 +211,12 @@ def generate_subject_report(sem1_data, sem3_data):
             report.append(f"**Sections**: {', '.join(sorted(data['sections']))}\n\n")
             report.append(f"**Faculty**: {', '.join(sorted(data['faculty']))}\n\n")
             
-            report.append("| Component | Faculty | Sections | Sessions/Week |\n")
-            report.append("|-----------|---------|----------|---------------|\n")
-            for comp in sorted(data['components'], key=lambda x: x['type']):
+            report.append("| Component | Faculty | Role | Sections | Sessions/Week |\n")
+            report.append("|-----------|---------|------|----------|---------------|\n")
+            for comp in sorted(data['components'], key=lambda x: (x['type'], x.get('assignmentType', 'primary'))):
                 sections = ', '.join(comp['sections'])
-                report.append(f"| {comp['type'].title()} | {comp['faculty']} | "
+                role = "Primary" if comp['assignmentType'] == 'primary' else "Supporting"
+                report.append(f"| {comp['type'].title()} | {comp['faculty']} | {role} | "
                             f"{sections} | {comp['sessions']} |\n")
             report.append("\n")
     

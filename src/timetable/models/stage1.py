@@ -228,18 +228,29 @@ class Faculty(BaseModel):
     assigned_subjects: list[AssignedSubject] = Field(
         default_factory=list, alias="assignedSubjects"
     )
-    supporting_subjects: list[str] = Field(
-        default_factory=list, alias="supportingSubjects"
+    supporting_subjects: list[AssignedSubject] = Field(
+        default_factory=list, alias="supportingSubjects",
+        description="Supporting subjects: can be string (for all sections) or dict (for section-wise assignment)"
     )
 
     def get_all_subject_codes(self) -> set[str]:
         """Get all subject codes (assigned + supporting)."""
-        codes = set(self.supporting_subjects)
+        codes = set()
+        
+        # Process supporting subjects
+        for subj in self.supporting_subjects:
+            if isinstance(subj, str):
+                codes.add(subj)
+            elif isinstance(subj, dict):
+                codes.update(subj.keys())
+        
+        # Process assigned subjects
         for subj in self.assigned_subjects:
             if isinstance(subj, str):
                 codes.add(subj)
             elif isinstance(subj, dict):
                 codes.update(subj.keys())
+        
         return codes
 
 

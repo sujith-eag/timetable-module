@@ -102,6 +102,10 @@ class AssignmentBuilder:
         """Calculate summary statistics for assignments."""
         stats = {
             "totalAssignments": len(assignments),
+            "byAssignmentType": {
+                "primary": 0,
+                "supporting": 0
+            },
             "byType": {
                 "core": 0,
                 "elective": 0,
@@ -130,6 +134,11 @@ class AssignmentBuilder:
         }
         
         for assignment in assignments:
+            # Count by assignment type (primary vs supporting)
+            assignment_type = assignment.get("assignmentType", "primary")
+            if assignment_type in stats["byAssignmentType"]:
+                stats["byAssignmentType"][assignment_type] += 1
+            
             # Count by type
             if assignment.get("isDiffSubject"):
                 stats["byType"]["diff"] += 1

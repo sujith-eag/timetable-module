@@ -219,6 +219,7 @@ class SchedulingInputBuilder:
                 "priority": a["priority"],
                 "isElective": a["isElective"],
                 "isDiffSubject": a.get("isDiffSubject", False),
+                "assignmentType": a.get("assignmentType", "primary"),  # Track primary vs supporting
                 "constraints": a["constraints"]
             })
         

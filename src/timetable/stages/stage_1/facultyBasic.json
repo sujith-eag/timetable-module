@@ -17,7 +17,9 @@
         {"25MCA23": ["A"]},
         "25MCAE13"
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        { "25MCA26": ["B"] }
+      ]
     },
     {
       "facultyId": "RG",
@@ -26,7 +28,9 @@
       "assignedSubjects": [
         {"25MCA21": ["A", "B"]}
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        { "25MCA27" : ["A", "B"]}
+      ]
     },
     {
       "facultyId": "MM",
@@ -53,7 +57,12 @@
       "assignedSubjects": [
         {"25MCA25": ["A"]}
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        { "25MCA27" : ["A", "B"] },
+        { "25MCA26" : ["A"] },
+        "25MCAE12",
+        "25MCAE13"
+      ]
     },
     {
       "facultyId": "PNP",
@@ -63,7 +72,9 @@
         {"25MCA27": ["B"]},
         "25MCAE11"
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        {"25MCA27": ["A"]}
+      ]
     },
     {
       "facultyId": "SK",
@@ -72,7 +83,12 @@
       "assignedSubjects": [
         {"25MCA25": ["B"]}
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        { "25MCA22": [ "A", "B" ]},
+        { "25MCA24": [ "A", "B" ]},
+        { "25MCA26": ["A"] },
+        "25MCAE11"
+      ]
     },
     {
       "facultyId": "SM",
@@ -81,7 +97,10 @@
       "assignedSubjects": [
         {"25MCA26": ["A"]}
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        {"25MCA22":["A","B"]},
+        "25MCAE11"
+      ]
     },
     {
       "facultyId": "SH",
@@ -90,7 +109,13 @@
       "assignedSubjects": [
         {"25MCA22": ["B"]}
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        {"25MCA22":["A"]},
+        {"25MCA24":["A","B"]},
+        {"25MCA26": ["B"]},
+        "25MCAE13"
+
+      ]
     },
     {
       "facultyId": "KS",
@@ -99,7 +124,12 @@
       "assignedSubjects": [
         {"25MCA26": ["B"]}
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        {"25MCA22": ["B"]},
+        {"25MCA24":["A","B"]},
+        {"25MCA26": ["A"]},
+        "25MCAE11"
+      ]
     },
     {
       "facultyId": "SZ",
@@ -109,7 +139,10 @@
         {"25MCA22": ["A"]},
         {"25MCA27": ["A"]}
       ],
-      "supportingSubjects": []
+      "supportingSubjects": [
+        {"25MCA26": ["B"]},
+        {"25MCA27": ["B"]}
+      ]
     }
   ]
 }

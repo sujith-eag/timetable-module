@@ -35,6 +35,14 @@ def analyze_semester(data, semester_num):
         by_type[type_key]['hours'] += round(a['sessionsPerWeek'] * a['sessionDuration'] / 60, 2)
     stats['byType'] = dict(by_type)
     
+    # By assignment type (primary vs supporting)
+    by_assignment_type = {'primary': 0, 'supporting': 0}
+    for a in assignments:
+        assignment_type = a.get('assignmentType', 'primary')
+        if assignment_type in by_assignment_type:
+            by_assignment_type[assignment_type] += 1
+    stats['byAssignmentType'] = by_assignment_type
+    
     # By component
     by_component = defaultdict(lambda: {'count': 0, 'sessions': 0, 'hours': 0})
     for a in assignments:

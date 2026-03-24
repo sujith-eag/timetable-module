@@ -166,13 +166,29 @@ class PrimaryAssignment(BaseModel):
 
 
 class SupportingAssignment(BaseModel):
-    """A supporting assignment (backup/helper) for a faculty member."""
+    """A supporting assignment (backup/helper) for a faculty member.
+    
+    Can be assigned section-wise or to all sections. Structure mirrors PrimaryAssignment
+    to support detailed scheduling information.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     subject_code: str = Field(..., alias="subjectCode", min_length=1)
     semester: int = Field(..., ge=1, le=8)
+    sections: list[str] = Field(default_factory=list)
+    student_group_ids: list[str] = Field(..., alias="studentGroupIds")
+    component_ids: list[str] = Field(..., alias="componentIds")
+    component_types: list[Literal["theory", "tutorial", "practical"]] = Field(
+        ..., alias="componentTypes"
+    )
     role: Literal["supporting"] = Field(...)
+    weekly_hours_per_section: int = Field(..., alias="weeklyHoursPerSection", ge=0)
+    total_weekly_hours: int = Field(..., alias="totalWeeklyHours", ge=0)
+    sessions_per_week_per_section: int = Field(
+        ..., alias="sessionsPerWeekPerSection", ge=0
+    )
+    total_sessions_per_week: int = Field(..., alias="totalSessionsPerWeek", ge=0)
 
 
 class WorkloadStats(BaseModel):
