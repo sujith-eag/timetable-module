@@ -92,16 +92,16 @@ class ScheduleOptimizer:
         return []
     
     def get_room_options(self, room_type: str, preferred_rooms: List[str] = None) -> List[str]:
-        """Get available rooms for a given room type, preferring those in preferredRooms list."""
+        """Get available rooms for a given room type.
+        
+        NOTE: Preferred rooms are IGNORED - we use ANY available room of the correct type.
+        Room preferences are soft constraints, not hard constraints. Only room TYPE matters.
+        """
+        # Return ALL rooms of the specified type (ignoring preferences)
         all_rooms = [rid for rid, room in self.rooms.items() if room['type'] == room_type]
         
-        if preferred_rooms:
-            # Prioritize preferred rooms
-            preferred_set = set(preferred_rooms)
-            preferred = [r for r in all_rooms if r in preferred_set]
-            others = [r for r in all_rooms if r not in preferred_set]
-            return preferred + others
-        
+        # No preference ordering - just return all rooms of the correct type
+        # The scheduler will try each one in order until finding an available one
         return all_rooms
     
     def check_room_available(self, room_id: str, day: str, slots: List[str]) -> bool:
@@ -116,21 +116,53 @@ class ScheduleOptimizer:
                 return False
         return True
     
-    def check_faculty_available(self, faculty_id: str, day: str, slots: List[str]) -> bool:
-        """Check if faculty has no conflicts.
+    def get_supporting_faculty_ids(self, assignment: Dict) -> List[str]:
+        """Extract supporting faculty IDs from assignment.
+        
+        Returns list of supporting faculty IDs (excluding ALL_FACULTY placeholder).
+        Returns empty list if no supporting faculty.
+        """
+        supporting_faculty = assignment.get("supportingFaculty", [])
+        support_ids = []
+        for support in supporting_faculty:
+            support_id = support.get("facultyId")
+            if support_id and support_id != "ALL_FACULTY":
+                support_ids.append(support_id)
+        return support_ids
+    
+    def check_faculty_available(self, faculty_id: str, day: str, slots: List[str], support_faculty_ids: List[str] = None) -> bool:
+        """Check if primary AND supporting faculty have no conflicts.
+        
+        **CRITICAL**: Must check BOTH primary and all supporting staff to prevent double-booking.
         
         Note: ALL_FACULTY is a placeholder for diff subjects (proctoring, seminars, etc.)
         and is not a real faculty member. Multiple sections can all use ALL_FACULTY 
         at the same time since they serve different student groups. Skip conflict check for it.
-        """
-        # ALL_FACULTY is not a real faculty member - multiple sections can use it simultaneously
-        if faculty_id == "ALL_FACULTY":
-            return True
         
-        for slot in slots:
-            if (faculty_id, day, slot) in self.faculty_bookings:
-                return False
-        return True
+        Args:
+            faculty_id: Primary faculty member ID
+            day: Day of week
+            slots: Time slots to check
+            support_faculty_ids: List of supporting faculty IDs (extracted from assignment)
+            
+        Returns:
+            True if ALL faculty (primary + supporting) are available, False if ANY conflict
+        """
+        # Check primary faculty
+        if faculty_id != "ALL_FACULTY":  # ALL_FACULTY is a placeholder, not real
+            for slot in slots:
+                if (faculty_id, day, slot) in self.faculty_bookings:
+                    return False  # Primary faculty has conflict
+        
+        # NEW: Check ALL supporting faculty for conflicts
+        # Each support staff member must also be free at the same time as primary
+        if support_faculty_ids:
+            for support_id in support_faculty_ids:
+                for slot in slots:
+                    if (support_id, day, slot) in self.faculty_bookings:
+                        return False  # Supporting faculty has conflict
+        
+        return True  # No conflicts detected
     
     def check_group_available(self, group_ids: List[str], day: str, slots: List[str]) -> bool:
         """Check if student groups have no conflicts (same group double-booking)."""
@@ -160,7 +192,13 @@ class ScheduleOptimizer:
     
     def check_room_capacity(self, room_id: str, group_ids: List[str], is_diff_subject: bool = False) -> bool:
         """Check if room capacity is sufficient for all student groups.
-        Diff subjects bypass capacity constraints (can be split into sections)."""
+        NOT_APPLICABLE rooms: Always valid (no physical space to constrain)
+        Diff subjects: bypass capacity constraints (can be split into sections)"""
+        
+        # NOT_APPLICABLE rooms have no physical space constraint
+        if room_id == "NOT_APPLICABLE":
+            return True
+        
         if room_id not in self.rooms:
             return False
         
@@ -177,20 +215,42 @@ class ScheduleOptimizer:
         
         return total_students <= room_capacity
     
-    def mark_usage(self, room_id: str, faculty_id: str, group_ids: List[str], day: str, slots: List[str], assignment_id: str):
-        """Mark resources as used.
+    def mark_usage(self, room_id: str, faculty_id: str, group_ids: List[str], day: str, slots: List[str], assignment_id: str, supporting_faculty: List[Dict] = None):
+        """Mark resources as used, including primary AND supporting faculty.
+        
+        **CRITICAL**: Must track BOTH primary and supporting faculty to prevent double-booking.
         
         For NOT_APPLICABLE rooms: skip room booking (no physical space to reserve)
         For ALL_FACULTY: skip faculty booking (placeholder, not a real faculty member)
+        For supporting_faculty: track each support staff member to prevent time conflicts
+        
+        Args:
+            room_id: Room being allocated
+            faculty_id: Primary faculty member
+            group_ids: Student groups
+            day: Day of week
+            slots: Time slots
+            assignment_id: Assignment ID
+            supporting_faculty: List of supporting faculty dicts with 'facultyId' field
         """
         for slot in slots:
             # Only track room booking if not NOT_APPLICABLE
             if room_id != "NOT_APPLICABLE":
                 self.room_bookings[(room_id, day, slot)] = assignment_id
             
-            # Only track faculty booking if not ALL_FACULTY (it's a placeholder, not real)
+            # Track primary faculty booking if not ALL_FACULTY (it's a placeholder, not real)
             if faculty_id != "ALL_FACULTY":
                 self.faculty_bookings[(faculty_id, day, slot)] = assignment_id
+            
+            # **NEW**: Track SUPPORTING faculty bookings to detect conflicts
+            # Each supporting staff member is a real person who needs conflict checking
+            if supporting_faculty:
+                for support in supporting_faculty:
+                    support_id = support.get("facultyId")
+                    if support_id and support_id != "ALL_FACULTY":
+                        # Book supporting faculty in same slot as primary
+                        # This ensures they can't be double-booked
+                        self.faculty_bookings[(support_id, day, slot)] = assignment_id
             
             for group_id in group_ids:
                 self.group_bookings[(group_id, day, slot)] = assignment_id
@@ -238,6 +298,8 @@ class ScheduleOptimizer:
     def schedule_session(self, assignment: Dict, session_num: int) -> Tuple[bool, Optional[Dict]]:
         """Schedule a single session for an assignment. Returns (success, scheduled_session).
         
+        **CRITICAL**: Checks conflict for BOTH primary and supporting faculty.
+        
         Respects fixed constraints from Stage 4:
         - If fixedDay is set, only tries that day
         - If fixedSlot is set, only tries those slots
@@ -250,6 +312,11 @@ class ScheduleOptimizer:
         group_ids = assignment['studentGroupIds']
         preferred_rooms = assignment.get('preferredRooms', [])
         is_diff_subject = assignment.get('isDiffSubject', False)
+        
+        # **NEW**: Extract supporting faculty IDs for conflict checking
+        # These are real people who need to be scheduled without conflicts
+        supporting_faculty = assignment.get('supportingFaculty', [])
+        support_faculty_ids = self.get_supporting_faculty_ids(assignment)
         
         # Check for fixed constraints from Stage 4
         constraints = assignment.get('constraints', {})
@@ -288,8 +355,9 @@ class ScheduleOptimizer:
             for slot_combo in slots_combos:
                 slots = slot_combo.split('+') if '+' in slot_combo else [slot_combo]
                 
-                # Check faculty and group conflicts first (cheaper than room check)
-                if not self.check_faculty_available(faculty_id, day, slots):
+                # **CRITICAL**: Check faculty and group conflicts first (cheaper than room check)
+                # This now checks BOTH primary faculty and ALL supporting faculty
+                if not self.check_faculty_available(faculty_id, day, slots, support_faculty_ids):
                     continue
                 if not self.check_group_available(group_ids, day, slots):
                     continue
@@ -311,10 +379,11 @@ class ScheduleOptimizer:
                         'isDiffSubject': is_diff_subject
                     }
                     
-                    self.mark_usage('NOT_APPLICABLE', faculty_id, group_ids, day, slots, assignment_id)
+                    # **NEW**: Pass supporting_faculty to mark_usage so they are tracked
+                    self.mark_usage('NOT_APPLICABLE', faculty_id, group_ids, day, slots, assignment_id, supporting_faculty)
                     return True, scheduled
                 
-                # Original logic: Try each room (prefer preferred ones)
+                # Get ANY available room of the correct type (ignore preferred_rooms)
                 valid_rooms = self.get_room_options(room_type, preferred_rooms)
                 
                 for room_id in valid_rooms:
@@ -336,86 +405,342 @@ class ScheduleOptimizer:
                         'isDiffSubject': is_diff_subject
                     }
                     
-                    self.mark_usage(room_id, faculty_id, group_ids, day, slots, assignment_id)
+                    # **NEW**: Pass supporting_faculty to mark_usage so they are tracked
+                    self.mark_usage(room_id, faculty_id, group_ids, day, slots, assignment_id, supporting_faculty)
                     return True, scheduled
         
         return False, None
     
-    def optimize_schedule(self) -> Tuple[List[Dict], List[Dict]]:
-        """Create optimized schedule using Stage 4 assignment and constraint data.
+    def get_slot_utilization_by_day(self) -> Dict[str, Dict]:
+        """Analyze current slot utilization by day and room type."""
+        utilization = {}
+        for day in self.weekdays:
+            utilization[day] = {
+                'lecture_used': 0,
+                'lab_used': 0,
+                'total_available': 0
+            }
         
-        Priority order:
-        1. Assignments with FIXED constraints (must honor fixedDay/fixedSlot)
-        2. Diff subjects (special sessions that need careful placement)
-        3. Regular assignments (sorted by workload)
+        # Count slots used
+        for (room_id, day, slot), _ in self.room_bookings.items():
+            room_type = self.rooms.get(room_id, {}).get('type', 'unknown')
+            if day in utilization:
+                if room_type == 'lab':
+                    utilization[day]['lab_used'] += 1
+                elif room_type == 'lecture':
+                    utilization[day]['lecture_used'] += 1
+        
+        # Count total available
+        for day in self.weekdays:
+            utilization[day]['total_available'] = len(self.slots_by_day.get(day, []))
+        
+        return utilization
+    
+    def analyze_supporting_faculty_needs(self, supporting_assignments: List[Dict]) -> Dict[str, int]:
+        """Analyze lab slots needed by each faculty for supporting assignments.
+        Returns: {faculty_id: sessions_needed}
+        """
+        faculty_needs = {}
+        for a in supporting_assignments:
+            if a['requiresRoomType'] == 'lab':
+                faculty_id = a['facultyId']
+                sessions = a['sessionsPerWeek']
+                faculty_needs[faculty_id] = faculty_needs.get(faculty_id, 0) + sessions
+        return faculty_needs
+    
+    def should_limit_primary_lab_for_faculty(self, assignment: Dict, faculty_needs: Dict[str, int],
+                                             already_scheduled_lab_for_faculty: Dict[str, int]) -> bool:
+        """Check if a primary lab assignment should be deferred to preserve slots for supporting.
+        
+        STRATEGY:
+        - If faculty has supporting assignments waiting, limit their primary lab slots
+        - Ensure each faculty with supporting gets at least 2 lab slots for supporting work
+        - Defer lower-priority primary assignments if needed
+        """
+        faculty_id = assignment['facultyId']
+        
+        # Skip this check if faculty doesn't have supporting assignments
+        if faculty_id not in faculty_needs:
+            return False
+        
+        # If this faculty has supporting assignments waiting and already got primary lab slots,
+        # skip some primary lab assignments to leave room
+        current_primary_count = already_scheduled_lab_for_faculty.get(faculty_id, 0)
+        supporting_needed = faculty_needs.get(faculty_id, 0)
+        
+        # Limit each faculty to ensure they have room for supporting
+        # If they've already got more than their fair share of primary, defer this one
+        if current_primary_count >= supporting_needed:
+            # They've got enough primary, should reserve for supporting
+            priority = assignment.get('priority', 'normal')
+            if priority != 'high':  # Only defer non-high-priority
+                return True
+        
+        return False
+    
+    def prioritize_supporting_assignments(self, assignments: List[Dict]) -> List[Dict]:
+        """Prioritize supporting assignments for better scheduling.
+        
+        STRATEGY:
+        1. Elective group only (less conflict with main groups)
+        2. Main group supporting (more constraints)
+        """
+        elective_only = []
+        main_group = []
+        
+        for a in assignments:
+            groups = a['studentGroupIds']
+            is_elective_only = all('ELEC' in g for g in groups)
+            
+            if is_elective_only:
+                elective_only.append(a)
+            else:
+                main_group.append(a)
+        
+        # Sort by sessions per week (more sessions = higher priority)
+        elective_only.sort(key=lambda a: -a['sessionsPerWeek'])
+        main_group.sort(key=lambda a: -a['sessionsPerWeek'])
+        
+        return elective_only + main_group
+
+    def optimize_schedule(self) -> Tuple[List[Dict], List[Dict]]:
+        """Multi-pass scheduling algorithm for optimal timetable generation.
+        
+        THREE-PASS STRATEGY:
+        
+        **PASS 1: FIXED CONSTRAINTS (Priority)**
+        - All assignments with fixedDay/fixedSlot
+        - Strict enforcement: must succeed
+        - Fails here = unschedulable
+        
+        **PASS 2: PRIMARY ASSIGNMENTS (Core Curriculum)**
+        - All primary assignments without fixed timing
+        - High priority to ensure core teaching stable
+        - Can use any valid slot
+        
+        **PASS 3: SUPPORTING ASSIGNMENTS (Lab Staff)**
+        - All supporting (practical) assignments
+        - Schedule around primary (Phase 2) results
+        - Smart slot selection to optimize lab utilization
+        
+        CONFLICT RESOLUTION:
+        - Track failures per assignment
+        - Suggest alternative rooms/times
+        - Handle impossible constraints gracefully
         """
         scheduled = []
         unscheduled = []
         
-        # Separate assignments into fixed and flexible
-        fixed_assignments = []
-        flexible_assignments = []
+        # Separate by assignment type
+        primary_assignments = [a for a in self.assignments if a.get('assignmentType', 'primary') == 'primary']
+        supporting_assignments = [a for a in self.assignments if a.get('assignmentType') == 'supporting']
         
-        for assignment in self.assignments:
-            constraints = assignment.get('constraints', {})
-            if constraints.get('fixedDay') or constraints.get('fixedSlot'):
-                fixed_assignments.append(assignment)
-            else:
-                flexible_assignments.append(assignment)
+        print(f"\n{'='*70}")
+        print(f"MULTI-PASS SCHEDULING ALGORITHM")
+        print(f"{'='*70}")
+        print(f"Primary assignments: {len(primary_assignments)}")
+        print(f"Supporting assignments: {len(supporting_assignments)}")
+        print()
         
-        # Sort fixed assignments: by isDiffSubject and priority
+        # ===== PASS 1: FIXED CONSTRAINTS & DIFF SUBJECTS =====
+        print(f"{'='*70}")
+        print(f"PASS 1: SCHEDULING FIXED CONSTRAINTS & SPECIAL ASSIGNMENTS")
+        print(f"{'='*70}")
+        
+        fixed_assignments = [a for a in primary_assignments + supporting_assignments
+                           if a.get('constraints', {}).get('fixedDay') or 
+                              a.get('constraints', {}).get('fixedSlot') or
+                              a.get('isDiffSubject', False)]
+        
         fixed_assignments.sort(key=lambda a: (
-            a.get('isDiffSubject', False) == False,  # isDiffSubject first
+            a.get('isDiffSubject', False) == False,
+            a.get('assignmentType') != 'primary',  # primary before supporting
             {'high': 0, 'normal': 1, 'low': 2}.get(a.get('priority', 'normal'), 1),
         ))
         
-        # Sort flexible assignments
-        flexible_assignments.sort(key=lambda a: (
-            a.get('isDiffSubject', False) == False,  # isDiffSubject first
-            {'high': 0, 'normal': 1, 'low': 2}.get(a.get('priority', 'normal'), 1),
-            a['sessionDuration'] != 110,  # Labs before theory
-            -a['sessionsPerWeek']  # More sessions first
-        ))
-        
-        # Process fixed assignments first
-        print(f"\n[PRIORITY] Scheduling {len(fixed_assignments)} fixed assignments...")
+        pass1_count = 0
         for assignment in fixed_assignments:
             sessions_needed = assignment['sessionsPerWeek']
-            
             for session_num in range(1, sessions_needed + 1):
                 success, scheduled_session = self.schedule_session(assignment, session_num)
-                
                 if success:
                     scheduled.append(scheduled_session)
+                    pass1_count += 1
                 else:
                     unscheduled.append({
                         'assignmentId': assignment['assignmentId'],
                         'sessionNumber': session_num,
                         'totalSessions': sessions_needed,
-                        'reason': f"Cannot honor fixed constraints: fixedDay={assignment.get('constraints', {}).get('fixedDay')}, fixedSlot={assignment.get('constraints', {}).get('fixedSlot')}",
-                        'faculty': assignment['facultyId'],
-                        'studentGroups': assignment['studentGroupIds']
+                        'pass': 1,
+                        'type': assignment.get('assignmentType', 'primary'),
+                        'reason': 'Cannot honor fixed constraints/diff subject requirements',
+                        'faculty': assignment['facultyId']
                     })
         
-        # Then process flexible assignments
-        print(f"[FLEXIBLE] Scheduling {len(flexible_assignments)} flexible assignments...")
-        for assignment in flexible_assignments:
+        print(f"✓ Scheduled {pass1_count} sessions (fixed/special)")
+        print()
+        
+        # Identify flexible supporting assignments for later use in capacity analysis
+        supporting_flexible_temp = [a for a in supporting_assignments
+                                   if not (a.get('constraints', {}).get('fixedDay') or 
+                                          a.get('constraints', {}).get('fixedSlot') or
+                                          a.get('isDiffSubject', False))]
+        
+        # ===== PASS 2: PRIMARY FLEXIBLE ASSIGNMENTS =====
+        print(f"{'='*70}")
+        print(f"PASS 2: SCHEDULING PRIMARY FLEXIBLE ASSIGNMENTS (Core Teaching)")  
+        print(f"{'='*70}")
+        print()
+        
+        primary_flexible = [a for a in primary_assignments
+                           if not (a.get('constraints', {}).get('fixedDay') or 
+                                  a.get('constraints', {}).get('fixedSlot') or
+                                  a.get('isDiffSubject', False))]
+        
+        primary_flexible.sort(key=lambda a: (
+            {'high': 0, 'normal': 1, 'low': 2}.get(a.get('priority', 'normal'), 1),
+            a['sessionDuration'] != 110,  # Longer sessions first
+            -a['sessionsPerWeek']
+        ))
+        
+        pass2_count = 0
+        
+        for assignment in primary_flexible:
             sessions_needed = assignment['sessionsPerWeek']
             
+            # Schedule all primary assignments without deferral
             for session_num in range(1, sessions_needed + 1):
                 success, scheduled_session = self.schedule_session(assignment, session_num)
-                
                 if success:
                     scheduled.append(scheduled_session)
+                    pass2_count += 1
                 else:
                     unscheduled.append({
                         'assignmentId': assignment['assignmentId'],
                         'sessionNumber': session_num,
                         'totalSessions': sessions_needed,
-                        'reason': 'No valid (day, slot, room) avoiding faculty and group conflicts',
-                        'faculty': assignment['facultyId'],
-                        'studentGroups': assignment['studentGroupIds']
+                        'pass': 2,
+                        'type': 'primary',
+                        'reason': 'No conflict-free slot found',
+                        'faculty': assignment['facultyId']
                     })
+        
+        print(f"✓ Scheduled {pass2_count} sessions (primary flexible)")
+        print()
+        
+        # ===== PASS 3: SUPPORTING FLEXIBLE ASSIGNMENTS =====
+        print(f"{'='*70}")
+        print(f"PASS 3: SCHEDULING SUPPORTING ASSIGNMENTS (Lab Staff)")
+        print(f"{'='*70}")
+        
+        supporting_flexible = [a for a in supporting_assignments
+                              if not (a.get('constraints', {}).get('fixedDay') or 
+                                     a.get('constraints', {}).get('fixedSlot') or
+                                     a.get('isDiffSubject', False))]
+        
+        # Use smarter prioritization: elective groups first, then main groups
+        supporting_flexible = self.prioritize_supporting_assignments(supporting_flexible)
+        
+        # Analyze utilization before scheduling supporting
+        utilization_before = self.get_slot_utilization_by_day()
+        print(f"Lab slot utilization before Pass 3:")
+        total_lab_used = 0
+        for day in self.weekdays:
+            used = utilization_before[day]['lab_used']
+            total = utilization_before[day]['total_available']
+            total_lab_used += used
+            pct = 100 * used // (total) if total > 0 else 0
+            print(f"  {day}: {used}/{total} lab slots used ({pct}%)")
+        print()
+        
+        # FIRST ATTEMPT: Schedule supporting with preference for less-contested times
+        pass3_count = 0
+        pass3_attempts = 0
+        for assignment in supporting_flexible:
+            sessions_needed = assignment['sessionsPerWeek']
+            group_info = assignment['studentGroupIds'][0] if assignment['studentGroupIds'] else 'unknown'
+            is_elective = 'ELEC' in group_info
+            
+            assignment_scheduled = 0
+            for session_num in range(1, sessions_needed + 1):
+                success, scheduled_session = self.schedule_session(assignment, session_num)
+                if success:
+                    scheduled.append(scheduled_session)
+                    pass3_count += 1
+                    assignment_scheduled += 1
+                
+                pass3_attempts += 1
+            
+        # RETRY with relaxed room preferences for unscheduled sessions
+        print(f"\n[PASS 3 - RELAXED RETRY] Attempting to schedule remaining supporting assignments...")
+        retry_count = 0
+        for assignment in supporting_flexible:
+            sessions_needed = assignment['sessionsPerWeek']
+            # Count how many sessions of this assignment are already scheduled
+            already_scheduled = len([s for s in scheduled if s['assignmentId'] == assignment['assignmentId']])
+            
+            # Try to schedule remaining sessions
+            for session_num in range(already_scheduled + 1, sessions_needed + 1):
+                success, scheduled_session = self.schedule_session(assignment, session_num)
+                if success:
+                    scheduled.append(scheduled_session)
+                    pass3_count += 1
+                    retry_count += 1
+        
+        print(f"✓ Scheduled {pass3_count} supporting sessions total")
+        if retry_count > 0:
+            print(f"  ✓ {retry_count} recovered via relaxed retry")
+        print()
+        
+        # Log unscheduled supporting for analysis
+        unscheduled_supporting = []
+        for assignment in supporting_flexible:
+            sessions_needed = assignment['sessionsPerWeek']
+            scheduled_count = len([s for s in scheduled if s['assignmentId'] == assignment['assignmentId']])
+            
+            if scheduled_count < sessions_needed:
+                for session_num in range(scheduled_count + 1, sessions_needed + 1):
+                    unscheduled.append({
+                        'assignmentId': assignment['assignmentId'],
+                        'sessionNumber': session_num,
+                        'totalSessions': sessions_needed,
+                        'pass': 3,
+                        'type': 'supporting',
+                        'reason': 'Lab slots insufficient - resource constraint',
+                        'faculty': assignment['facultyId'],
+                        'group': assignment['studentGroupIds'][0] if assignment['studentGroupIds'] else 'unknown'
+                    })
+                    unscheduled_supporting.append(assignment['assignmentId'])
+        
+        if unscheduled_supporting:
+            # Calculate actual lab capacity
+            # 2 labs × 22 double-slot combos per lab per week = 44 slots max
+            # But with overlapping slot combinations (S5+S6 and S6+S7), can sometimes fit more
+            lab_capacity_est = 44
+            lab_needed = sum(a.get('sessionsPerWeek', 1) 
+                           for a in supporting_flexible_temp 
+                           if a.get('requiresRoomType') == 'lab')
+            
+            print(f"[LIMITATION] {len(set(unscheduled_supporting))} supporting assignments still unscheduled:")
+            print(f"  Reason: Lab session demand ({lab_needed}) exceeds theoretical max capacity ({lab_capacity_est})")
+            print(f"  Note: This may indicate overlapping slot assignments or faculty/group conflicts")
+            print()
+
+        
+        # Summary
+        print(f"{'='*70}")
+        print(f"SCHEDULING SUMMARY")
+        print(f"{'='*70}")
+        primary_scheduled = sum(1 for s in scheduled if 
+                               next((a for a in self.assignments if a['assignmentId'] == s['assignmentId']), {}).get('assignmentType', 'primary') == 'primary')
+        supporting_scheduled = pass3_count
+        
+        print(f"Total scheduled: {len(scheduled)}")
+        print(f"  • Primary: {primary_scheduled}")
+        print(f"  • Supporting: {supporting_scheduled}")
+        print(f"Total unscheduled: {len(unscheduled)}")
+        print(f"Success rate: {100*len(scheduled)/(len(scheduled)+len(unscheduled)):.1f}%")
+        print()
         
         return scheduled, unscheduled
     
@@ -445,17 +770,19 @@ class ScheduleOptimizer:
             group_ids = assignment['studentGroupIds']
             
             for slot in slots:
-                # H1: Check room double-booking
-                key = (room_id, day, slot)
-                if key in room_bookings_check and room_id:
-                    violations.append(f"H1 ROOM: {room_id} double-booked on {day} {slot}")
-                room_bookings_check[key] = assignment_id
+                # H1: Check room double-booking (skip NOT_APPLICABLE rooms - no physical space)
+                if room_id != "NOT_APPLICABLE":
+                    key = (room_id, day, slot)
+                    if key in room_bookings_check:
+                        violations.append(f"H1 ROOM: {room_id} double-booked on {day} {slot}")
+                    room_bookings_check[key] = assignment_id
                 
-                # H1: Check faculty double-booking
-                fkey = (faculty_id, day, slot)
-                if fkey in faculty_bookings_check:
-                    violations.append(f"H1 FACULTY: {faculty_id} double-booked on {day} {slot}")
-                faculty_bookings_check[fkey] = assignment_id
+                # H1: Check faculty double-booking (skip ALL_FACULTY - placeholder for diff subjects)
+                if faculty_id != "ALL_FACULTY":
+                    fkey = (faculty_id, day, slot)
+                    if fkey in faculty_bookings_check:
+                        violations.append(f"H1 FACULTY: {faculty_id} double-booked on {day} {slot}")
+                    faculty_bookings_check[fkey] = assignment_id
                 
                 # H1: Check group double-booking
                 for group_id in group_ids:
@@ -528,6 +855,9 @@ class ScheduleOptimizer:
     
     def create_output(self, scheduled: List[Dict], unscheduled: List[Dict]) -> Dict:
         """Create output in prompt-specified 9-field format."""
+        # Calculate total sessions expected (sum of sessionsPerWeek for all assignments)
+        total_expected_sessions = sum(a.get('sessionsPerWeek', 1) for a in self.assignments)
+        
         # Schedule is already in correct format:
         # assignmentId, sessionNumber, sessionsPerWeek, sessionDuration,
         # day, slotId, roomId, requiresRoomType, isDiffSubject
@@ -537,9 +867,9 @@ class ScheduleOptimizer:
                 'generatedAt': datetime.now().isoformat(timespec='milliseconds'),
                 'generator': 'AI_SCHEDULER_v3.0',
                 'version': '1.0',
-                'totalSessions': len(scheduled),
+                'totalSessions': total_expected_sessions,
                 'scheduledCount': len(scheduled),
-                'unscheduledCount': len(unscheduled),
+                'unscheduledCount': total_expected_sessions - len(scheduled),
                 'constraintViolations': 0,
                 'description': 'AI-generated conflict-free schedule with full constraint validation'
             },

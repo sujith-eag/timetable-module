@@ -48,14 +48,26 @@ class ConstraintBuilder:
         Returns:
             Constraints dictionary with:
             - studentGroupConflicts: List of conflicting student groups
-            - facultyConflicts: List of conflicting faculty (just the assignment's own faculty)
+            - facultyConflicts: List of ALL faculty involved (primary + supporting)
             - fixedDay: Day if fixed timing (e.g., "Tue")
             - fixedSlot: Slot if fixed timing (e.g., "S6")
             - mustBeInRoom: Specific room if pre-allocated
         """
+        # Build faculty conflicts list with BOTH primary and supporting faculty
+        # This ensures NO faculty member (primary or supporting) can have time conflicts
+        faculty_conflicts = [assignment["facultyId"]]  # Start with primary
+        
+        # Add supporting faculty IDs to conflict list
+        # Supporting faculty must also avoid time overlaps with other assignments
+        supporting_faculty = assignment.get("supportingFaculty", [])
+        for support in supporting_faculty:
+            support_id = support.get("facultyId")
+            if support_id:
+                faculty_conflicts.append(support_id)
+        
         constraints = {
             "studentGroupConflicts": self._get_student_group_conflicts(assignment),
-            "facultyConflicts": [assignment["facultyId"]],
+            "facultyConflicts": faculty_conflicts,  # Now contains primary + supporting
             "fixedDay": None,
             "fixedSlot": None,
             "mustBeInRoom": None

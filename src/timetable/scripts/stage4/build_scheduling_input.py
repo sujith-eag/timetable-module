@@ -219,8 +219,11 @@ class SchedulingInputBuilder:
                 "priority": a["priority"],
                 "isElective": a["isElective"],
                 "isDiffSubject": a.get("isDiffSubject", False),
-                "assignmentType": a.get("assignmentType", "primary"),  # Track primary vs supporting
-                "constraints": a["constraints"]
+                # IMPORTANT: All practicals and tutorials are PRIMARY curriculum, not supporting.
+                # They must be scheduled with equal priority to theory, not deferred to PASS 3.
+                "assignmentType": "primary" if a["componentType"] in ["practical", "tutorial"] else a.get("assignmentType", "primary"),
+                "constraints": a["constraints"],
+                "supportingFaculty": a.get("supportingFaculty", [])
             })
         
         return transformed
@@ -239,12 +242,24 @@ class SchedulingInputBuilder:
         print()
         
         # Combine all assignments from all semesters
+        # NOTE: Semester 4 assignments are already FIXED (Saturday only, diff subjects)
+        # and should NOT be sent to the scheduler. Only schedule semesters 1, 2, 3.
         all_assignments = []
         sem_assignments_map = {}  # For metadata
+        scheduled_semesters = []  # Track which semesters will actually be scheduled
         
         for sem in stage3["semesters"]:
             sem_assignments = stage3["sem_assignments"][sem]
+            
+            # EXCLUDE Semester 4: all assignments are diff subjects with fixed Saturday schedule
+            if sem == 4:
+                print(f"   ⊘ Skipping Semester {sem}: Assignments already have fixed schedule (Saturday)")
+                sem_assignments_map[f"semester{sem}Assignments"] = len(sem_assignments)
+                sem_assignments_map[f"semester{sem}Status"] = "FIXED_SCHEDULE"
+                continue
+            
             all_assignments.extend(sem_assignments)
+            scheduled_semesters.append(sem)
             sem_assignments_map[f"semester{sem}Assignments"] = len(sem_assignments)
         
         # Build components
@@ -266,10 +281,11 @@ class SchedulingInputBuilder:
             "generator": "build_scheduling_input.py",
             "version": "1.0",
             "totalAssignments": len(transformed_assignments),
-            "activeSemesters": stage3["semesters"],
+            "scheduledSemesters": scheduled_semesters,  # Only semesters being scheduled
+            "activeSemesters": stage3["semesters"],  # All semesters in project
             "totalTimeSlots": len(time_slots),
             "totalRooms": len(rooms),
-            "description": "Self-contained scheduling input for AI-based timetable generation"
+            "description": "Self-contained scheduling input for AI-based timetable generation. Sem 4 excluded (fixed schedule)."
         }
         
         # Add dynamic semester assignment counts

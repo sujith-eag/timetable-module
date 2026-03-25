@@ -41,9 +41,12 @@ class StudentViewGenerator:
             print(f"❌ FATAL: Could not find session data under any of the expected keys: {session_keys} in {timetable_path.name}")
             sys.exit(1)
 
+        self.unscheduled_assignments = self.timetable_data.get('unscheduledAssignments', [])
         self.slots_info = self._get_slots_info()
         self.days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
         print(f"   ✓ Loaded {len(self.sessions)} scheduled sessions.")
+        if self.unscheduled_assignments:
+            print(f"   ✓ Loaded {len(self.unscheduled_assignments)} unscheduled assignments.")
 
     def _load_json(self, path: Path) -> dict:
         """Loads a JSON file."""
@@ -130,7 +133,16 @@ class StudentViewGenerator:
                 f"**{session['subjectTitle']}**" if session.get('subjectTitle') and session['subjectTitle'] != session.get('shortCode') 
                 else f"**{session['shortCode']}**"
             )
-            entry += f" ({session['componentType']})<br>{session['facultyId']}<br>{room_display}"
+            # Add faculty/instructors with consolidated supporting staff (compact format)
+            primary_faculty = session['facultyId']
+            supporting_list = [staff['id'] for staff in session.get('supportingStaff', [])]
+            
+            if supporting_list:
+                faculty_str = f"{primary_faculty}, Support: {', '.join(supporting_list)}"
+            else:
+                faculty_str = primary_faculty
+            
+            entry += f" ({session['componentType']})<br>{faculty_str}<br>{room_display}"
             
             for section_code in session.get('sections', []):
                 if section_code in sections:
@@ -188,6 +200,20 @@ class StudentViewGenerator:
                 
                 report_parts.append("| " + " | ".join(row) + " |")
             report_parts.append("\n---\n")  # Separator between sections
+        
+        # Add unscheduled assignments summary for this semester
+        unscheduled_sem = [a for a in self.unscheduled_assignments if a['semester'] == semester]
+        if unscheduled_sem:
+            report_parts.append(f"\n## ❌ Unscheduled Assignments - Semester {semester}\n")
+            report_parts.append("| Subject | Type | Faculty | Component | Groups | Sessions |\n")
+            report_parts.append("|:--- |:--- |:--- |:--- |:--- |:--- |\n")
+            for a in sorted(unscheduled_sem, key=lambda x: (x['facultyId'], x['subjectCode'])):
+                report_parts.append(
+                    f"| {a['subjectCode']} | {a.get('assignmentType', 'N/A')} | {a['facultyName']} ({a['facultyId']}) | "
+                    f"{a['componentType']} | {', '.join(a['studentGroupIds'])} | "
+                    f"{a['sessionsPerWeek']}/week |\n"
+                )
+            report_parts.append("")
 
         return "\n".join(report_parts)
 

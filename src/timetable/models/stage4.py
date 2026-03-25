@@ -159,6 +159,7 @@ class SchedulingAssignment(BaseModel):
     priority: str
     is_elective: bool = Field(alias="isElective")
     is_diff_subject: bool = Field(default=False, alias="isDiffSubject")
+    supporting_faculty: List[Dict] = Field(default_factory=list, alias="supportingFaculty")
     constraints: AssignmentConstraints
 
     @field_validator('component_type')

@@ -30,9 +30,12 @@ class FacultyViewGenerator:
         if not self.sessions:
             print(f"❌ FATAL: Could not find session data under 'timetable_A' or 'timetable' key in {timetable_path.name}")
             sys.exit(1)
+        self.unscheduled_assignments = self.timetable_data.get('unscheduledAssignments', [])
         self.slots_info = self._get_slots_info()
         self.days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
         print(f"   ✓ Loaded {len(self.sessions)} scheduled sessions.")
+        if self.unscheduled_assignments:
+            print(f"   ✓ Loaded {len(self.unscheduled_assignments)} unscheduled assignments.")
 
     def _load_json(self, path: Path) -> dict:
         """Loads a JSON file."""
@@ -171,6 +174,59 @@ class FacultyViewGenerator:
                 
                 report_parts.append("| " + " | ".join(row) + " |")
             report_parts.append("\n---\n")
+            
+            # Add unscheduled assignments for this faculty
+            missing_for_faculty = [a for a in self.unscheduled_assignments if a['facultyId'] == fac_id]
+            if missing_for_faculty:
+                report_parts.append(f"### ❌ Unscheduled Assignments for {fac_name}\n")
+                for assignment in sorted(missing_for_faculty, key=lambda x: x['subjectCode']):
+                    report_parts.append(
+                        f"- **{assignment['subjectCode']}** ({assignment['componentType']}) | "
+                        f"{assignment['subjectTitle']} | "
+                        f"Groups: {', '.join(assignment['studentGroupIds'])} | "
+                        f"Sessions: {assignment['sessionsPerWeek']}/week × {assignment['totalSessionsNeeded']} needed"
+                    )
+                report_parts.append("")
+
+        # Summary section
+        report_parts.append("\n" + "=" * 70)
+        report_parts.append("SCHEDULING SUMMARY")
+        report_parts.append("=" * 70 + "\n")
+        
+        total_scheduled = len(self.sessions)
+        total_unscheduled = len(self.unscheduled_assignments)
+        total_assignments = total_scheduled + total_unscheduled
+        
+        report_parts.append(f"**Total Scheduled Sessions:** {total_scheduled}")
+        report_parts.append(f"**Total Unscheduled Assignments:** {total_unscheduled}")
+        report_parts.append(f"**Total Assignments:** {total_assignments}")
+        report_parts.append(f"**Coverage:** {total_scheduled}/{total_assignments} ({100*total_scheduled/total_assignments:.1f}%)")
+        report_parts.append("")
+        
+        # Unscheduled by type
+        unscheduled_by_type = {}
+        for a in self.unscheduled_assignments:
+            atype = a.get('assignmentType', 'unknown')
+            unscheduled_by_type[atype] = unscheduled_by_type.get(atype, 0) + 1
+        
+        if unscheduled_by_type:
+            report_parts.append("**Unscheduled by Type:**")
+            for atype, count in sorted(unscheduled_by_type.items()):
+                report_parts.append(f"- {atype.upper()}: {count} assignments")
+            report_parts.append("")
+        
+        # Unscheduled by faculty
+        unscheduled_by_faculty = {}
+        for a in self.unscheduled_assignments:
+            fac = a['facultyId']
+            unscheduled_by_faculty[fac] = unscheduled_by_faculty.get(fac, 0) + 1
+        
+        if unscheduled_by_faculty:
+            report_parts.append("**Faculty with Unscheduled Assignments:**")
+            for fac_id, count in sorted(unscheduled_by_faculty.items(), key=lambda x: -x[1]):
+                fac_name = all_faculty.get(fac_id, fac_id)
+                report_parts.append(f"- {fac_name} ({fac_id}): {count} assignments")
+            report_parts.append("")
 
         return "\n".join(report_parts)
 

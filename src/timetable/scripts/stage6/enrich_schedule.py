@@ -23,6 +23,8 @@ class ScheduleEnricher:
         self.assignments_map = {}
         self.time_slots_map = {}
         self.slot_combinations_map = {}
+        self.scheduled_supporting_map = {}  # Maps assignment ID to supporting staff info
+        self.unscheduled_assignments = []  # Track unscheduled assignments
         
     def load_data(self):
         """Load Stage 4 scheduling input"""
@@ -66,7 +68,38 @@ class ScheduleEnricher:
         print(f"   ✓ Loaded {len(schedule)} sessions")
         print()
         
+        # Build supporting staff map
+        self._build_supporting_staff_map(schedule)
+        
         return schedule
+    
+    def _build_supporting_staff_map(self, schedule: List[Dict]):
+        """Build map of supporting staff embedded in assignments"""
+        # Get scheduled assignment IDs
+        scheduled_ids = {s['assignmentId'] for s in schedule if s.get('day') and s.get('slotId')}
+        
+        # Build map directly from supportingFaculty field in assignments
+        for assignment in self.scheduling_input['assignments']:
+            assignment_id = assignment['assignmentId']
+            
+            # If this assignment is scheduled and has supporting faculty, register them
+            if assignment_id in scheduled_ids:
+                supporting_faculty = assignment.get('supportingFaculty', [])
+                if supporting_faculty:
+                    self.scheduled_supporting_map[assignment_id] = [
+                        {
+                            'id': staff['facultyId'],
+                            'name': staff['name'],
+                            'subject': assignment['subjectCode']
+                        }
+                        for staff in supporting_faculty
+                    ]
+        
+        # Track unscheduled assignments
+        scheduled_ids_set = set(scheduled_ids)
+        for assignment in self.scheduling_input['assignments']:
+            if assignment['assignmentId'] not in scheduled_ids_set:
+                self.unscheduled_assignments.append(assignment)
 
     def get_time_info(self, day: str, slot_id: str) -> Dict:
         """Get time information for a day/slot combination"""
@@ -113,6 +146,9 @@ class ScheduleEnricher:
         # Get time information
         time_info = self.get_time_info(day, slot_id) if day and slot_id else {"startTime": None, "endTime": None}
         
+        # Get supporting staff for this assignment
+        supporting_staff = self.scheduled_supporting_map.get(assignment_id, [])
+        
         # Build enriched session
         enriched = {
             "sessionId": f"S_{session_counter:03d}",
@@ -130,7 +166,8 @@ class ScheduleEnricher:
             "studentGroupIds": assignment['studentGroupIds'],
             "semester": assignment['semester'],
             "sections": assignment['sections'],
-            "supportingStaff": []
+            "supportingStaff": supporting_staff,
+            "assignmentType": assignment.get('assignmentType', 'primary')
         }
         
         return enriched
@@ -169,6 +206,16 @@ class ScheduleEnricher:
             print(f"   ℹ️  {not_applicable_rooms} sessions have NOT_APPLICABLE rooms (special assignments like proctoring)")
         if skipped > 0:
             print(f"   ⚠️  Skipped {skipped} unscheduled sessions (no day/slot)")
+        
+        # Count unscheduled by type
+        unscheduled_primary = [a for a in self.unscheduled_assignments if a.get('assignmentType') == 'primary']
+        unscheduled_supporting = [a for a in self.unscheduled_assignments if a.get('assignmentType') == 'supporting']
+        
+        if unscheduled_primary or unscheduled_supporting:
+            print(f"   ❌ {len(unscheduled_primary)} unscheduled PRIMARY assignments")
+            if unscheduled_supporting:
+                print(f"   ❌ {len(unscheduled_supporting)} unscheduled SUPPORTING assignments")
+        
         print()
         
         return enriched_schedule
@@ -181,10 +228,12 @@ class ScheduleEnricher:
                 "generator": "enrich_schedule.py",
                 "version": "1.0",
                 "sourceFile": original_file,
-                "totalSessions": len(enriched_schedule),
+                "totalScheduledSessions": len(enriched_schedule),
+                "totalUnscheduledAssignments": len(self.unscheduled_assignments),
                 "description": "Enriched timetable with full session details"
             },
-            "timetable": enriched_schedule
+            "timetable": enriched_schedule,
+            "unscheduledAssignments": self.unscheduled_assignments
         }
         
         output_file = self.stage6_dir / "timetable_enriched.json"

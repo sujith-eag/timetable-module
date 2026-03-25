@@ -99,7 +99,8 @@ class AssignmentGenerator:
         self,
         faculty: Dict[str, Any],
         faculty_assignment: Dict[str, Any],
-        assignment_type: str  # 'primary' or 'supporting'
+        assignment_type: str,  # 'primary' or 'supporting'
+        supporting_faculty: List[Dict[str, Any]] = None  # Supporting staff for this assignment
     ) -> List[Dict[str, Any]]:
         """
         Generate teaching assignment(s) from a faculty assignment.
@@ -111,6 +112,7 @@ class AssignmentGenerator:
             faculty: Faculty dictionary
             faculty_assignment: Faculty assignment from Stage 2
             assignment_type: 'primary' or 'supporting'
+            supporting_faculty: List of supporting faculty to include in assignment
             
         Returns:
             List of teaching assignment dictionaries
@@ -174,7 +176,8 @@ class AssignmentGenerator:
                     is_elective=is_elective,
                     is_diff=is_diff,
                     subject=subject,
-                    assignment_type=assignment_type
+                    assignment_type=assignment_type,
+                    supporting_faculty=supporting_faculty
                 )
                 assignments.append(assignment)
             else:
@@ -215,7 +218,8 @@ class AssignmentGenerator:
                             is_elective=is_elective,
                             is_diff=is_diff,
                             subject=subject,
-                            assignment_type=assignment_type
+                            assignment_type=assignment_type,
+                            supporting_faculty=supporting_faculty
                         )
                         assignments.append(assignment)
                 else:
@@ -237,7 +241,8 @@ class AssignmentGenerator:
                         is_elective=is_elective,
                         is_diff=is_diff,
                         subject=subject,
-                        assignment_type=assignment_type
+                        assignment_type=assignment_type,
+                        supporting_faculty=supporting_faculty
                     )
                     assignments.append(assignment)
         
@@ -261,7 +266,8 @@ class AssignmentGenerator:
         is_elective: bool,
         is_diff: bool,
         subject: Dict[str, Any],
-        assignment_type: str = "primary"  # 'primary' or 'supporting'
+        assignment_type: str = "primary",  # 'primary' or 'supporting'
+        supporting_faculty: List[Dict[str, Any]] = None  # Supporting staff for this assignment
     ) -> Dict[str, Any]:
         """Create a single teaching assignment."""
         section_str = ",".join(sections)
@@ -291,6 +297,7 @@ class AssignmentGenerator:
             "isElective": is_elective,
             "isDiffSubject": is_diff,
             "assignmentType": assignment_type,  # Track whether primary or supporting
+            "supportingFaculty": (supporting_faculty or []) if component_type == "practical" else [],  # Supporting staff only for practicals
             "constraints": {}  # Will be filled by constraint_builder
         }
         
@@ -444,6 +451,22 @@ class AssignmentGenerator:
         """
         Generate all teaching assignments for a semester.
         
+        IMPORTANT: Only primary assignments generate teaching assignments.
+        Supporting staff are INCLUDED in practical assignments only as "supportingFaculty"
+        rather than creating separate assignments. This prevents duplication and correctly
+        models lab instruction where multiple staff assist during a single session.
+        
+        Supporting staff are NOT added to theory or tutorial assignments.
+        
+        For example:
+          - Primary: Dr. X teaches 25MCA26 Practical Section A (2 sessions/week)
+          - Supporting: Dr. Y, Z, W assist during those sessions
+          - Result: 1 practical assignment for Dr. X with supportingFaculty: [Y, Z, W]
+            (NOT 4 separate assignments for each faculty)
+          
+          - Dr. X teaches 25MCA26 Theory Section A: No supporting staff added
+            (supporting staff are only for practicals)
+        
         Args:
             semester: Semester number (1 or 3). If None, generates for all semesters.
             
@@ -452,27 +475,81 @@ class AssignmentGenerator:
         """
         all_assignments = []
         
+        # STEP 1: Build a map of supporting faculty indexed by (subjectCode, componentType, section)
+        # This allows us to efficiently attach SECTION-SPECIFIC supporting staff to primary assignments
+        # Supporting faculty are distributed across sections to prevent over-assignment
+        # Maximum per section: 1 primary + 3 supporting = 4 staff for lab practicals (60 students)
+        supporting_faculty_map = {}
         for faculty in self.loader.faculty_data:
-            faculty_id = faculty["facultyId"]
-            
-            # Process primary assignments
-            for faculty_assignment in faculty.get("primaryAssignments", []):
-                if semester and faculty_assignment["semester"] != semester:
-                    continue
-                
-                assignments = self.generate_assignment_from_faculty_assignment(
-                    faculty, faculty_assignment, "primary"
-                )
-                all_assignments.extend(assignments)
-            
-            # Process supporting assignments (lab/tutorial support faculty)
-            # Supporting subjects are now included as full assignments with section-wise constraints
             for faculty_assignment in faculty.get("supportingAssignments", []):
                 if semester and faculty_assignment["semester"] != semester:
                     continue
                 
+                subject_code = faculty_assignment["subjectCode"]
+                sections = faculty_assignment.get("sections", [])
+                
+                # Supporting assignments may have multiple component types
+                for component_type in faculty_assignment.get("componentTypes", []):
+                    # Create key for EACH section this supporting faculty assists
+                    # This ensures supporting faculty are matched with their specific sections
+                    for section in sections:
+                        key = (subject_code, component_type, section)
+                        if key not in supporting_faculty_map:
+                            supporting_faculty_map[key] = []
+                        
+                        supporting_faculty_map[key].append({
+                            "facultyId": faculty["facultyId"],
+                            "name": faculty["name"],
+                            "role": "assistant"
+                        })
+        
+        # STEP 2: Generate primary assignments with supporting faculty attached
+        for faculty in self.loader.faculty_data:
+            faculty_id = faculty["facultyId"]
+            
+            # Process ONLY primary assignments
+            for faculty_assignment in faculty.get("primaryAssignments", []):
+                if semester and faculty_assignment["semester"] != semester:
+                    continue
+                
+                subject_code = faculty_assignment["subjectCode"]
+                sections = faculty_assignment.get("sections", [])
+                
+                # Collect supporting faculty ONLY for practical components, SECTION-SPECIFIC
+                # Supporting staff assist lab practicals for their assigned sections, not theory or tutorials
+                # This prevents duplicate/over-assignment of supporting faculty across sections
+                supporting = []
+                for component_type in faculty_assignment.get("componentTypes", []):
+                    # Only attach supporting staff to practical assignments
+                    if component_type == "practical":
+                        # Collect supporting staff for EACH section of this assignment
+                        # Only include supporting faculty who are assigned to this specific section
+                        for section in sections:
+                            key = (subject_code, component_type, section)
+                            supporting.extend(supporting_faculty_map.get(key, []))
+                
+                # Remove duplicate faculty while preserving order
+                # Also enforce maximum of 3 supporting staff per section/assignment
+                # (Design: 1 primary + 3 supporting = 4 staff for 60 student group = 15 students per staff)
+                seen = set()
+                unique_supporting = []
+                max_supporting = 3  # Maximum supporting faculty per assignment
+                for staff in supporting:
+                    fid = staff["facultyId"]
+                    if fid not in seen and len(unique_supporting) < max_supporting:
+                        seen.add(fid)
+                        unique_supporting.append(staff)
+                
+                # If more than max supporting staff were assigned, log a warning
+                if len(supporting) > max_supporting:
+                    print(f"  ⚠️  Warning: {subject_code} practical has {len(supporting)} supporting staff, capped at {max_supporting}")
+                
+                supporting = unique_supporting
+                
+                # Generate assignment with supporting faculty included
                 assignments = self.generate_assignment_from_faculty_assignment(
-                    faculty, faculty_assignment, "supporting"
+                    faculty, faculty_assignment, "primary",
+                    supporting_faculty=supporting
                 )
                 all_assignments.extend(assignments)
         
